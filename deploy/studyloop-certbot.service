@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew StudyLoop IP certificate
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/studyloop-certbot/bin/certbot renew --quiet --deploy-hook /usr/local/libexec/studyloop-reload-nginx
