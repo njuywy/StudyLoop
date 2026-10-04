@@ -93,3 +93,43 @@ test('late content response after logout cannot restore private reader', async (
   await expect(page.getByRole('heading', { name: '登录 StudyLoop' })).toBeVisible()
   await expect(page.getByText('迟到的私有内容')).toHaveCount(0)
 })
+
+test('title search distinguishes paths, handles empty matches and expands a pure container', async ({ page }, testInfo) => {
+  await page.goto('./#/review?book=book&point=p1')
+  await expect(page.getByText('正文 p1', { exact: true })).toBeVisible()
+  const mobile = testInfo.project.name === 'mobile'
+  if (mobile) await page.getByRole('button', { name: '章节目录', exact: true }).click()
+  const panel = mobile ? page.getByRole('dialog') : page.getByRole('complementary', { name: '章节目录' })
+  const input = panel.getByLabel('搜索章节或知识点标题')
+  await input.fill('不存在的关键词')
+  await expect(panel.getByRole('status')).toContainText('没有匹配的标题')
+  await input.fill('第一章')
+  await panel.getByRole('button', { name: /第一章.*展开目录/ }).click()
+  await expect(input).toHaveValue('')
+  await expect(panel.locator('summary').first()).toBeFocused()
+  await input.fill('第二个')
+  await expect(panel.getByRole('status')).toContainText('找到 1 个标题')
+  await expect(panel.getByRole('button', { name: /第二个知识点 第一章/ })).toBeVisible()
+  await panel.getByRole('button', { name: /第二个知识点 第一章/ }).click()
+  await expect(page.getByText('正文 p2', { exact: true })).toBeVisible()
+  if (mobile) await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('same titles in different chapters retain distinct search destinations', async ({ page }, testInfo) => {
+  const other = { id: 'p3', title: '第一个知识点', parent_id: 'other-root', point_id: 'p3', level: 2, path: ['第二章', '第一个知识点'], page: 3 }
+  await page.route(`${api}/review/books/book/toc`, r => r.fulfill({ json: { book: { ...book, point_count: 3 }, items: [...nodes,
+    { id: 'other-root', title: '第二章', parent_id: null, point_id: null, level: 1, path: ['第二章'], page: 3 }, other] } }))
+  await page.route(`${api}/review/points/p3`, r => r.fulfill({ json: { id: 'p3', book_id: 'book', version: 'v1', title: other.title, path: other.path, source_start: 3, source_end: 3, previous_id: 'p2', next_id: null,
+    blocks: [{ id: 'other-text', type: 'paragraph', text: '第二章同名知识点正文', page: 3, bbox: [54, 100, 540, 130] }] } }))
+  await page.goto('./#/review?book=book&point=p1')
+  await expect(page.getByText('正文 p1', { exact: true })).toBeVisible()
+  const mobile = testInfo.project.name === 'mobile'
+  if (mobile) await page.getByRole('button', { name: '章节目录', exact: true }).click()
+  const panel = mobile ? page.getByRole('dialog') : page.getByRole('complementary', { name: '章节目录' })
+  await panel.getByLabel('搜索章节或知识点标题').fill('第一个')
+  await expect(panel.getByRole('status')).toContainText('找到 2 个标题')
+  await expect(panel.getByRole('button', { name: '第一个知识点 第一章', exact: true })).toBeVisible()
+  await panel.getByRole('button', { name: '第一个知识点 第二章', exact: true }).click()
+  await expect(page.getByText('第二章同名知识点正文', { exact: true })).toBeVisible()
+  await expect(page).toHaveURL(/point=p3/)
+})

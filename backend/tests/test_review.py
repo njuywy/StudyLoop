@@ -163,3 +163,29 @@ def test_real_import_reimport_persistence_and_revocation(reset_api, bundle, tmp_
         with connect(settings) as connection:
             connection.execute("DELETE FROM review_points WHERE book_id=%s", (book["id"],))
             connection.execute("DELETE FROM review_books WHERE id=%s", (book["id"],))
+
+
+def test_wrapped_bookmark_ignores_interleaved_rotated_watermark():
+    from studyloop.content_import import locate_heading
+
+    lines = [
+        {"text": "A wrapped heading", "bbox": [66, 74, 540, 108], "dir": (1, 0)},
+        {"text": "watermark", "bbox": [200, 90, 400, 150], "dir": (0.7, -0.7)},
+        {"text": "continued", "bbox": [66, 116, 154, 139], "dir": (1, 0)},
+    ]
+    entry = [1, "A wrapped heading continued", 1, {"to": pymupdf.Point(84, 72)}]
+    assert locate_heading(entry, lines) == (74, {0, 2})
+
+
+def test_code_excerpt_retains_indentation_as_zoomable_region(tmp_path):
+    from studyloop.content_import import figure_regions
+
+    with pymupdf.open() as pdf:
+        page = pdf.new_page()
+        page.insert_text((75, 100), "def example():", fontname="cour", fontsize=10)
+        page.insert_text((95, 116), "return 42", fontname="cour", fontsize=10)
+        page.insert_text((75, 160), "Ordinary explanatory prose", fontsize=12)
+        regions = figure_regions(page)
+        assert len(regions) == 1
+        assert regions[0].x0 <= 75 and regions[0].y0 < 100
+        assert regions[0].y1 > 116 and regions[0].y1 < 160

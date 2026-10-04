@@ -58,11 +58,17 @@ def locate_heading(entry, lines):
             return line["bbox"][1], {index}
         if len(value) > 4 and target.startswith(value):
             indices = {index}
-            for following in range(index + 1, min(index + 4, len(lines))):
+            for following in range(index + 1, len(lines)):
+                if lines[following]["bbox"][1] - line["bbox"][1] > 100:
+                    break
+                if lines[following]["dir"][0] < 0.99:
+                    continue
                 value += compact(lines[following]["text"])
                 indices.add(following)
                 if value == target:
                     return line["bbox"][1], indices
+                if not target.startswith(value):
+                    break
     raise ValueError(f"Cannot locate heading at source page {entry[2]}: {entry[1]}")
 
 
@@ -84,6 +90,34 @@ def figure_regions(page):
             if any(rect.intersects(d["rect"]) for d in paths):
                 if not any(r.intersects(rect) for r in regions):
                     regions.append(rect)
+    # Code is positioned with font/coordinates rather than literal indentation in
+    # this PDF. Preserve each contiguous code excerpt as a zoomable local image.
+    code_lines = []
+    for block in page.get_text("dict")["blocks"]:
+        if block["type"] != 0:
+            continue
+        for line in block["lines"]:
+            if any("Courier" in span["font"] for span in line["spans"]):
+                code_lines.append(pymupdf.Rect(line["bbox"]))
+    excerpts = []
+    for rect in sorted(code_lines, key=lambda r: r.y0):
+        if excerpts and rect.y0 - excerpts[-1].y1 < 18:
+            excerpts[-1].include_rect(rect)
+        else:
+            excerpts.append(rect)
+    for rect in excerpts:
+        overlapping = [r for r in regions if r.intersects(rect)]
+        for existing in overlapping:
+            rect.include_rect(existing)
+            regions.remove(existing)
+        regions.append(rect)
+    regions = [
+        r
+        for i, r in enumerate(regions)
+        if not any(
+            other.contains(r) and (other != r or j < i) for j, other in enumerate(regions) if j != i
+        )
+    ]
     return sorted(regions, key=lambda r: (r.y0, r.x0))
 
 
@@ -250,6 +284,13 @@ def build_bundle(source, output, start_page, end_page, title):
                 "point_count": len(documents),
                 "coverage_label": f"已上线原文第 {start_page}–{end_page} 页（部分章节）",
             }
+            if (
+                len(pdf.get_toc()) > 1
+                and start_page == pdf.get_toc()[1][2]
+                and end_page == len(pdf)
+                and len(entries) == len(pdf.get_toc()) - 1
+            ):
+                metadata["coverage_label"] = "全书内容已收录"
             manifest = {"book": metadata, "toc": nodes, "points": documents, "pages": pages}
         shutil.copyfile(source, output / "source.pdf")
         (output / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False))
