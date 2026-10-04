@@ -116,7 +116,8 @@ def figure_regions(page):
     # Code is positioned with font/coordinates rather than literal indentation in
     # this PDF. Preserve each contiguous code excerpt as a zoomable local image.
     code_lines, math_lines = [], []
-    for block in layout_blocks(page):
+    blocks = layout_blocks(page)
+    for block in blocks:
         if block["type"] != 0:
             continue
         for line in block["lines"]:
@@ -124,6 +125,35 @@ def figure_regions(page):
                 code_lines.append(pymupdf.Rect(line["bbox"]))
             if any("Math" in span["font"] for span in line["spans"]):
                 math_lines.append(pymupdf.Rect(line["bbox"]))
+    if math_lines:
+        # On math pages, some fractions use only ordinary fonts. A short bar
+        # with nearby numerator AND denominator distinguishes these from rules
+        # and underlines. Include the adjacent equation text on the same row.
+        lines = [line for b in blocks if b["type"] == 0 for line in b["lines"]]
+        spans = [
+            pymupdf.Rect(s["bbox"]) for line in lines for s in line["spans"] if s["text"].strip()
+        ]
+        for drawing in page.get_drawings():
+            for item in drawing["items"]:
+                if item[0] != "l":
+                    continue
+                a, b = item[1:]
+                if abs(a.y - b.y) > 0.1 or not 3 <= abs(a.x - b.x) <= 150:
+                    continue
+                left, right = sorted((a.x, b.x))
+                aligned = [r for r in spans if left - 2 <= (r.x0 + r.x1) / 2 <= right + 2]
+                above = [r for r in aligned if 0 <= a.y - r.y1 <= 8]
+                below = [r for r in aligned if 0 <= r.y0 - a.y <= 8]
+                if not above or not below:
+                    continue
+                fraction = pymupdf.Rect(left, a.y - 0.01, right, a.y + 0.01)
+                for rect in above + below:
+                    fraction.include_rect(rect)
+                math_lines.append(fraction)
+                for line in lines:
+                    rect = pymupdf.Rect(line["bbox"])
+                    if rect.intersects(fraction + (-12, 0, 12, 0)):
+                        math_lines.append(rect)
     excerpts = []
     # Fractions, sums and subscripts need their two-dimensional arrangement.
     # A small vertical gap joins fragments of one formula, not nearby prose.
@@ -143,7 +173,7 @@ def figure_regions(page):
         regions.append(rect)
     # Some table cells have glyphs protruding past the drawn border. A line
     # assigned to a crop must fit in the image, including that overhang.
-    for block in layout_blocks(page):
+    for block in blocks:
         if block["type"] != 0:
             continue
         for line in block["lines"]:

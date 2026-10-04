@@ -339,8 +339,8 @@ def test_formula_fraction_keeps_geometry_and_surrounding_prose(tmp_path):
         font = page.insert_font(fontname="tiro")
         pdf.xref_set_key(font, "BaseFont", "/FixtureMath-Regular")
         page.insert_text((190, 155), "R =", fontname="tiro")
-        page.insert_text((225, 148), "1", fontname="tiro")
-        page.insert_text((225, 164), "2", fontname="tiro")
+        page.insert_text((225, 148), "1")
+        page.insert_text((225, 164), "2")
         page.draw_line((220, 153), (235, 153))
         page.insert_text((75, 198), "After the equation.")
         pdf.set_toc([[1, "Formula chapter", 1, 75]])
@@ -350,7 +350,8 @@ def test_formula_fraction_keeps_geometry_and_surrounding_prose(tmp_path):
     assert [b["type"] for b in blocks] == ["paragraph", "figure", "paragraph"]
     assert blocks[0]["text"] == "Before the equation."
     assert blocks[-1]["text"] == "After the equation."
-    assert blocks[1]["bbox"][1] < 148 and blocks[1]["bbox"][3] >= 164
+    assert blocks[1]["bbox"][1] < 148 and blocks[1]["bbox"][3] > 163
+    assert blocks[1]["bbox"][0] <= 190 and blocks[1]["bbox"][2] >= 235
     assert validate_bundle(tmp_path / "formula") == manifest
 
 
