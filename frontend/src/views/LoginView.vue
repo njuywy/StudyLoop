@@ -38,6 +38,7 @@ async function submit() {
         <p v-if="message" role="alert" class="form-message">{{ message }}</p>
         <button class="primary-button" type="submit" :disabled="pending" :aria-busy="pending">{{ pending ? '正在登录…' : '登录' }}</button>
       </form>
+      <RouterLink class="text-link" to="/forgot-password">忘记密码？通过邮箱找回</RouterLink>
       <RouterLink class="text-link" to="/register">还没有账号？注册并验证邮箱</RouterLink>
     </div>
   </section>

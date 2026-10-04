@@ -10,6 +10,27 @@ class MailUnavailable(Exception):
 
 
 def send_verification(settings: Settings, recipient: str, link: str) -> None:
+    send_message(
+        settings,
+        recipient,
+        "验证你的 StudyLoop 邮箱",
+        "欢迎来到 StudyLoop！\n\n请在 24 小时内打开以下链接并确认验证邮箱：\n"
+        f"{link}\n\n链接仅可使用一次。如果你没有注册，请忽略此邮件。",
+    )
+
+
+def send_password_reset(settings: Settings, recipient: str, link: str) -> None:
+    send_message(
+        settings,
+        recipient,
+        "重置你的 StudyLoop 密码",
+        "请在 30 分钟内打开以下链接，主动提交新密码：\n"
+        f"{link}\n\n链接仅可使用一次。仅打开链接不会修改密码。"
+        "如果你没有申请找回密码，请忽略此邮件。",
+    )
+
+
+def send_message(settings: Settings, recipient: str, subject: str, body: str) -> None:
     if not settings.smtp_host or not settings.smtp_from:
         raise MailUnavailable()
     smtp = None
@@ -30,13 +51,10 @@ def send_verification(settings: Settings, recipient: str, link: str) -> None:
         if settings.smtp_username:
             smtp.login(settings.smtp_username, settings.smtp_password)
         message = EmailMessage()
-        message["Subject"] = "验证你的 StudyLoop 邮箱"
+        message["Subject"] = subject
         message["From"] = settings.smtp_from
         message["To"] = recipient
-        message.set_content(
-            "欢迎来到 StudyLoop！\n\n请在 24 小时内打开以下链接并确认验证邮箱：\n"
-            f"{link}\n\n链接仅可使用一次。如果你没有注册，请忽略此邮件。"
-        )
+        message.set_content(body)
         if smtp.send_message(message):
             raise MailUnavailable()
     except (OSError, smtplib.SMTPException, ValueError):
