@@ -4,6 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from studyloop.admin import router as admin_router
 from studyloop.avatars import router as avatar_router
 from studyloop.database import check_database
 from studyloop.mail import send_password_reset, send_verification
@@ -26,6 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(password_router)
     application.include_router(profile_router)
     application.include_router(avatar_router)
+    application.include_router(admin_router)
 
     @application.exception_handler(AuthError)
     async def auth_error(request: Request, error: AuthError):

@@ -22,7 +22,7 @@ async function submit() {
     return
   }
   const target = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  await router.replace(target.startsWith('/profile') || target.startsWith('/review') ? target : '/profile')
+  await router.replace(/^\/(?:profile|review|admin\/users)(?:[?#]|$)/.test(target) ? target : '/profile')
 }
 </script>
 

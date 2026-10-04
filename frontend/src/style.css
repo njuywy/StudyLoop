@@ -103,3 +103,10 @@ button:disabled, input:disabled { opacity: .65; cursor: wait; }
 .avatar-editor { margin-block: 24px; display: grid; gap: 12px; }
 .avatar-editor .user-avatar { width: 80px; height: 80px; }
 .avatar-editor input { min-width: 0; max-width: 100%; }
+.admin-section { padding-top: 48px; padding-bottom: 64px; }
+.managed-users { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); gap: 20px; }
+.managed-user { border: 1px solid #dce1d2; padding: 22px; border-radius: 8px; background: #fffef9; overflow-wrap: anywhere; }
+.managed-user dl { display: grid; grid-template-columns: 5em minmax(0, 1fr); gap: 10px; font-size: 13px; }
+.managed-user dd { margin: 0; }
+.pagination { display: flex; gap: 30px; }
+@media (max-width: 640px) { nav { gap: 24px; } }
