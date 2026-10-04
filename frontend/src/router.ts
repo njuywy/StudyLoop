@@ -8,6 +8,7 @@ import LoginView from './views/LoginView.vue'
 import ProtectedView from './views/ProtectedView.vue'
 import ForgotPasswordView from './views/ForgotPasswordView.vue'
 import ResetPasswordView from './views/ResetPasswordView.vue'
+import AdminView from './views/AdminView.vue'
 import { sessionEndReason, token } from './session'
 
 const router = createRouter({
@@ -21,6 +22,7 @@ const router = createRouter({
     { path: '/reset-password', component: ResetPasswordView },
     { path: '/profile', component: ProtectedView, meta: { requiresAuth: true } },
     { path: '/review', component: ProtectedView, meta: { requiresAuth: true } },
+    { path: '/admin/users', component: AdminView, meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', component: ComingSoonView, meta: { title: '页面暂不可用', label: '返回首页' } },
   ],
   scrollBehavior: () => ({ top: 0 }),

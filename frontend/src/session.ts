@@ -3,6 +3,8 @@ import { ref } from 'vue'
 const apiBase = (import.meta.env.VITE_API_BASE_URL || 'https://124.220.147.193/api/v1').replace(/\/$/, '')
 
 export type Profile = { id: string; email: string; nickname: string; role: string }
+export type ManagedUser = Profile & { email_verified: boolean; enabled: boolean; created_at: string }
+export type UserPage = { items: ManagedUser[]; total: number; page: number; page_size: number }
 const storedToken = sessionStorage.getItem('studyloop_session') || ''
 const storedExpiry = Date.parse(sessionStorage.getItem('studyloop_session_expires_at') || '')
 export const token = ref(storedToken && storedExpiry > Date.now() ? storedToken : '')
@@ -89,6 +91,8 @@ async function request<T>(path: string, options: RequestInit = {}, useToken = tr
     if (response.status === 401 && useToken) expireSession()
     if (!response.ok) {
       const code = typeof data === 'object' && data !== null && 'code' in data ? data.code : ''
+      if (response.status === 403) return { ok: false, status: 403, message: '仅管理员可以访问用户管理。' }
+      if (code === 'ADMIN_STATUS_PROTECTED') return { ok: false, status: response.status, message: '不能修改管理员的启用状态，请刷新列表。' }
       if (code === 'INVALID_AVATAR' || code === 'AVATAR_TOO_LARGE') return { ok: false, status: response.status, message: '请选择不超过 2 MiB 的有效 JPEG、PNG 或 WebP，累计像素不超过 1600 万。' }
       return { ok: false, status: response.status, message: code === 'INVALID_CURRENT_PASSWORD' ? '旧密码不正确，请重试。' : code === 'RATE_LIMITED' ? '登录尝试过于频繁，请稍后重试。' : response.status === 401 ? '邮箱或密码错误，或登录状态已失效。' : '请求暂未完成，请稍后重试。' }
     }
@@ -195,4 +199,14 @@ export async function logout() {
   }
   if (result.status === -1) return { ok: true as const, superseded: true }
   return { ok: false as const, message: result.message }
+}
+
+export function loadUsers(page: number) {
+  return request<UserPage>(`/admin/users?page=${page}&page_size=20`)
+}
+
+export function setUserEnabled(id: string, enabled: boolean) {
+  return request<ManagedUser>(`/admin/users/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }),
+  })
 }

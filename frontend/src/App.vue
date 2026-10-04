@@ -54,6 +54,7 @@ async function signOut() {
         <RouterLink to="/" exact-active-class="active">首页</RouterLink>
         <RouterLink to="/review">在线复习</RouterLink>
         <RouterLink to="/profile">个人中心</RouterLink>
+        <RouterLink v-if="profile?.role === 'admin'" to="/admin/users">用户管理</RouterLink>
       </nav>
       <div class="account-links">
         <template v-if="token"><UserAvatar /><RouterLink class="login-link" to="/profile">{{ profile?.nickname || '我的账号' }}</RouterLink><button class="mode-button" @click="signOut">退出</button></template>
