@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { loadProfile, request, token } from '../session'
+import { useReadingPosition, locationAtViewport, scrollToLocation, type ReadingLocation } from '../readingPosition'
 import type { KnowledgePoint, ReviewBook, TocNode } from '../review'
 import ReviewContents from './ReviewContents.vue'
 import ReviewImage from './ReviewImage.vue'
@@ -23,8 +24,79 @@ const sourceMode = ref(false)
 const title = ref<HTMLElement>()
 const currentId = computed(() => typeof route.query.point === 'string' ? route.query.point : '')
 let revision = 0
+const position = useReadingPosition()
+const { remote, draft, conflict, readError, storageError, saveError, saving, status, continuation } = position
+const positionNotice = ref('')
+let readingActive = false
+let restoreTarget: ReadingLocation | null = null
+let lastLocation: ReadingLocation | null = null
+let resizeFrame = 0
+function capturePosition() {
+  if (!readingActive || !point.value || viewer.value?.open || directory.value?.open) return
+  const location = locationAtViewport(point.value)
+  if (location) { lastLocation = location; position.capture(location) }
+}
+function suspendReading() {
+  readingActive = false; void position.flush()
+}
+async function activateReading(current: number) {
+  await nextTick(); await document.fonts.ready
+  await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+  if (current !== revision || !point.value) return
+  const target = restoreTarget; restoreTarget = null
+  window.scrollTo({ top: 0, behavior: 'instant' })
+  if (target && (target.content_version !== point.value.version || !scrollToLocation(target))) positionNotice.value = '原来的段落位置已失效，已返回该知识点开头。'
+  await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+  if (current !== revision || !point.value) return
+  readingActive = true
+  lastLocation = target && !positionNotice.value ? target : locationAtViewport(point.value)
+  // Restoring history is not a new reading action; wait for actual reading.
+  if (!target && !positionNotice.value) capturePosition()
+}
+async function continueReading(location = continuation.value) {
+  if (!location) return
+  positionNotice.value = ''
+  if (!nodes.value.some(n => n.point_id === location.point_id)) {
+    suspendReading(); restoreTarget = null; positionNotice.value = '上次知识点暂不可用，请从目录重新选择。'
+    await router.push({ path: '/review', query: { book: book.value?.id } }); return
+  }
+  await select(location.point_id, location)
+}
+async function chooseServer() {
+  readingActive = false
+  const location = position.useServer()
+  if (location) await continueReading(location)
+}
+async function chooseLocal() {
+  const current = revision
+  readingActive = false
+  const location = draft.value?.candidate
+  await position.useLocal()
+  if (current !== revision) return
+  if (!conflict.value && location) await continueReading(location)
+}
+function onVisibility() { if (document.hidden) void position.flush() }
+function onResize() {
+  if (!readingActive || !lastLocation) return
+  const location = lastLocation
+  const current = revision
+  readingActive = false; cancelAnimationFrame(resizeFrame)
+  resizeFrame = requestAnimationFrame(() => {
+    if (current !== revision) return
+    if (point.value?.id === location.point_id) scrollToLocation(location)
+    requestAnimationFrame(() => { if (current === revision) readingActive = true })
+  })
+}
+onMounted(() => {
+  window.addEventListener('scroll', capturePosition, { passive: true })
+  window.addEventListener('resize', onResize)
+  window.addEventListener('online', position.connectionChanged)
+  window.addEventListener('offline', position.connectionChanged)
+  document.addEventListener('visibilitychange', onVisibility)
+})
 
 function clear() {
+  readingActive = false; restoreTarget = null; lastLocation = null; position.clear()
   revision++; books.value = []; book.value = null; nodes.value = []; point.value = null
   closeViewer(); directory.value?.close()
 }
@@ -40,11 +112,14 @@ function showFigure(assetId: string, alt: string) {
   viewerPath.value = `/review/books/${book.value?.id}/assets/${assetId}`
   viewer.value?.showModal()
 }
-async function select(id: string) {
+async function select(id: string, restore: ReadingLocation | null = null) {
+  suspendReading(); restoreTarget = restore; positionNotice.value = ''
   directory.value?.close()
+  if (id === currentId.value) { await activateReading(++revision); return }
   await router.push({ path: '/review', query: { book: book.value?.id, point: id } })
 }
 async function refresh() {
+  suspendReading()
   const current = ++revision
   loading.value = true; error.value = ''; point.value = null; closeViewer()
   const identity = await loadProfile()
@@ -64,20 +139,36 @@ async function refresh() {
   if (current !== revision) return
   if (!result.ok) { loading.value = false; error.value = result.message; return }
   book.value = result.data.book; nodes.value = result.data.items
+  await position.initialize(identity.data.id, book.value)
+  if (current !== revision) return
   if (currentId.value) {
     const content = await request<KnowledgePoint>(`/review/points/${encodeURIComponent(currentId.value)}`)
     if (current !== revision) return
-    if (!content.ok) error.value = content.message
+    if (!content.ok) {
+      if (restoreTarget && content.status === 404) {
+        restoreTarget = null; positionNotice.value = '上次知识点暂不可用，请从目录重新选择。'
+      } else error.value = content.message
+    }
     else if (content.data.book_id !== bookId) error.value = '知识点与当前资料不匹配，请返回目录。'
     else point.value = content.data
   }
   loading.value = false
   await nextTick()
-  if (current === revision && currentId.value) title.value?.focus({ preventScroll: true })
+  if (current === revision && currentId.value) {
+    title.value?.focus({ preventScroll: true })
+    await activateReading(current)
+  }
 }
 watch(() => route.fullPath, refresh, { immediate: true })
 watch(token, () => { clear(); if (token.value) void refresh() })
-onBeforeUnmount(clear)
+onBeforeUnmount(() => {
+  suspendReading(); clear(); cancelAnimationFrame(resizeFrame)
+  window.removeEventListener('scroll', capturePosition)
+  window.removeEventListener('resize', onResize)
+  window.removeEventListener('online', position.connectionChanged)
+  window.removeEventListener('offline', position.connectionChanged)
+  document.removeEventListener('visibilitychange', onVisibility)
+})
 </script>
 
 <template>
@@ -88,6 +179,11 @@ onBeforeUnmount(clear)
     <div v-else-if="!book" class="reading-state"><h2>资料正在整理</h2><p>暂时没有可阅读的资料，请稍后再来。</p></div>
     <template v-else>
       <div class="book-strip"><div><h2>{{ book.title }}</h2><p>{{ book.coverage_label }} · {{ book.point_count }} 个知识点</p></div><button class="small-button mobile-contents" @click="directory?.showModal()">章节目录</button></div>
+      <div class="position-panel" aria-label="阅读位置">
+        <div class="position-actions"><span role="status">{{ status }}</span><button v-if="continuation" class="small-button" @click="continueReading()">继续上次阅读</button><button v-if="readError" class="small-button" @click="position.reload">重试读取位置</button><button v-else-if="saveError && !conflict" class="small-button" :disabled="saving" @click="position.flush">重试保存位置</button></div>
+        <p v-if="storageError" role="alert">{{ storageError }}</p><p v-if="positionNotice" role="status">{{ positionNotice }}</p>
+        <div v-if="conflict" class="position-conflict" role="alert"><p>其他设备已更新阅读位置。选择前不会覆盖任一记录。</p><p>服务器：{{ nodes.find(n => n.point_id === remote?.point_id)?.title || '暂无记录' }}</p><p>本地：{{ nodes.find(n => n.point_id === draft?.candidate.point_id)?.title || '原知识点暂不可用' }}</p><div class="position-actions"><button class="small-button" :disabled="!!readError" @click="chooseServer">使用服务器位置</button><button class="small-button" :disabled="saving || !!readError" @click="chooseLocal">以本地位置继续并保存</button></div></div>
+      </div>
       <div class="reading-layout">
         <aside class="desktop-contents" aria-label="章节目录"><h3>章节目录</h3><ReviewContents :nodes="nodes" :current="point?.id" @select="select" /></aside>
         <article class="reading-paper">
@@ -121,6 +217,11 @@ onBeforeUnmount(clear)
 </template>
 
 <style scoped>
+.position-panel { margin: -6px 0 22px; padding: 16px 20px; border: 1px solid #dce4d8; border-radius: 12px; background: #f7f8f0; font-size: 13px; line-height: 1.8; }
+.position-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.position-actions > span { margin-right: auto; }
+.position-panel p { margin: 8px 0; }
+.position-conflict { border-top: 1px solid #dce4d8; margin-top: 12px; padding-top: 8px; }
 .review-shell { padding-top: 36px; padding-bottom: 60px; }
 .review-intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 26px; }
 .review-intro h1 { font-size: clamp(27px, 4vw, 36px); margin: 8px 0; }

@@ -69,7 +69,7 @@ def lock_current_user(connection, authenticated_user):
         unauthorized()
     active = connection.execute(
         "SELECT 1 FROM auth_sessions WHERE digest = %s AND user_id = %s "
-        "AND revoked_at IS NULL AND expires_at > %s",
+        "AND revoked_at IS NULL AND expires_at > %s FOR SHARE",
         (authenticated_user["digest"], user["id"], now()),
     ).fetchone()
     if not active:

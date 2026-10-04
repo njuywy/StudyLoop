@@ -9,6 +9,7 @@ from studyloop.avatars import router as avatar_router
 from studyloop.database import check_database
 from studyloop.mail import send_password_reset, send_verification
 from studyloop.passwords import router as password_router
+from studyloop.positions import router as positions_router
 from studyloop.profile import router as profile_router
 from studyloop.registration import AuthError, reply, router
 from studyloop.review import router as review_router
@@ -30,6 +31,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(avatar_router)
     application.include_router(admin_router)
     application.include_router(review_router)
+    application.include_router(positions_router)
 
     @application.exception_handler(AuthError)
     async def auth_error(request: Request, error: AuthError):
