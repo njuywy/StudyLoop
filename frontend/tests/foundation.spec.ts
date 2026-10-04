@@ -7,9 +7,9 @@ test('Pages subpath navigation and hash refresh keep the application available',
   await page.goto('./')
   await expect(page.getByRole('status')).toHaveText('平台连接已就绪')
   await page.getByRole('navigation').getByRole('link', { name: '个人中心' }).click()
-  await expect(page).toHaveURL(/\/StudyLoop\/#\/profile$/)
+  await expect(page).toHaveURL(/\/StudyLoop\/#\/login\?redirect=/)
   await page.reload()
-  await expect(page.getByRole('heading', { name: '个人中心功能准备中' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '登录 StudyLoop' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
