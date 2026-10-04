@@ -175,6 +175,10 @@ def test_second_book_import_does_not_reset_existing_content_or_private_records(
     finally:
         with connect(settings) as connection:
             connection.execute(
+                "DELETE FROM review_points WHERE book_id IN (%s,%s)",
+                (original["book"]["id"], other["book"]["id"]),
+            )
+            connection.execute(
                 "DELETE FROM review_books WHERE id IN (%s,%s)",
                 (original["book"]["id"], other["book"]["id"]),
             )
