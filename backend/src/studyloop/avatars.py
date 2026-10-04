@@ -51,6 +51,7 @@ def validate_image(data: bytes, content_type: str | None) -> str:
         return extension
     except (
         ValueError,
+        SyntaxError,
         OSError,
         EOFError,
         UnidentifiedImageError,

@@ -114,13 +114,14 @@ export async function uploadAvatar(file: File) {
   if (avatarSaving.value) return { ok: false as const, status: 409, message: '头像正在保存，请稍后。' }
   const version = sessionVersion
   avatarSaving.value = true
+  avatarRevision++
   try {
     const body = new FormData()
     body.append('file', file)
     const result = await request<Blob>('/me/avatar', { method: 'PUT', body }, true, true)
     if (version !== sessionVersion) return { ok: false as const, status: -1, message: '' }
+    avatarRevision++
     if (result.ok) {
-      avatarRevision++
       displayAvatar(result.data)
       avatarError.value = ''
     } else if (result.status === 0 || result.status >= 500) {

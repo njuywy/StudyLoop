@@ -145,3 +145,30 @@ test('a stale avatar read cannot replace a successful upload; pending survives n
   await expect.poll(() => readDone).toBe(true)
   await expect(page.getByRole('img', { name: '我的头像' }).first()).toHaveAttribute('src', uploaded!)
 })
+
+test('a stale read cannot dismiss uncertain upload recovery', async ({ page }) => {
+  let release: (() => void) | undefined
+  const waiting = new Promise<void>(resolve => { release = resolve })
+  let reads = 0
+  let oldReadDone = false
+  await page.route(`${api}/me/avatar`, async route => {
+    if (route.request().method() === 'PUT') {
+      await route.fulfill({ status: 503, json: { code: 'DATABASE_UNAVAILABLE' } })
+    } else if (++reads === 1) {
+      await waiting
+      await route.fulfill({ status: 404, json: { code: 'NO_AVATAR' } })
+      oldReadDone = true
+    } else await route.fulfill({ contentType: 'image/png', body: png })
+  })
+  await page.goto('./#/profile')
+  await expect.poll(() => reads).toBe(1)
+  await page.getByLabel('选择头像').setInputFiles(file)
+  await page.getByRole('button', { name: '上传头像', exact: true }).click()
+  await expect(page.getByRole('alert').filter({ hasText: '保存结果尚未确认' })).toBeVisible()
+  release?.()
+  await expect.poll(() => oldReadDone).toBe(true)
+  await expect(page.getByRole('alert').filter({ hasText: '保存结果尚未确认' })).toBeVisible()
+  await page.getByRole('button', { name: '重试读取头像' }).click()
+  await expect(page.getByRole('img', { name: '我的头像' })).toHaveCount(2)
+  await expect(page.getByRole('alert').filter({ hasText: '保存结果尚未确认' })).toHaveCount(0)
+})

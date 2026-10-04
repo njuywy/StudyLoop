@@ -87,6 +87,16 @@ def test_animation_decode_budget():
         avatars.validate_image(output.getvalue(), "image/webp")
 
 
+def test_corrupt_png_checksum_returns_validation_error():
+    data = bytearray(picture())
+    data[data.index(b"IDAT") + 4] ^= 1
+    app = create_app(Settings())
+    app.dependency_overrides[current_user] = lambda: {"id": "unused"}
+    with TestClient(app) as client:
+        response = upload(client, "boundary", bytes(data))
+    assert response.status_code == 422 and response.json()["code"] == "INVALID_AVATAR"
+
+
 @pytest.mark.postgres
 def test_formats_replacement_isolation_and_restart(avatar_api):
     client, settings, email, token, account, _, root = avatar_api
