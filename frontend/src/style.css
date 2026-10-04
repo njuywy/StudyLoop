@@ -16,6 +16,7 @@ nav { display: flex; gap: 33px; margin: auto; font-size: 14px; color: #6b776e; }
 nav a { padding: 9px 0; border-bottom: 2px solid transparent; }
 nav a.active { color: #215342; border-color: #215342; font-weight: 600; }
 .account-links { display: flex; gap: 24px; align-items: center; font-size: 13px; }
+.account-links .mode-button { margin: 0; white-space: nowrap; }
 .small-button { padding: 11px 18px; border: 1px solid #c7d2c4; border-radius: 6px; background: #fff; }
 .small-button span { margin-left: 10px; }
 .section-width { max-width: 1240px; padding-left: 40px; padding-right: 40px; margin: auto; }
