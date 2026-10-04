@@ -56,5 +56,5 @@ test('mail hash link survives refresh, submits only on confirmation and removes 
   expect(verifications).toBe(1)
   expect(await page.evaluate(() => sessionStorage.length)).toBe(0)
   await page.getByRole('link', { name: '前往登录' }).click()
-  await expect(page.getByRole('heading', { name: '登录功能准备中' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '登录 StudyLoop' })).toBeVisible()
 })

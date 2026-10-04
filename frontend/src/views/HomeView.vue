@@ -12,7 +12,7 @@ import { RouterLink } from 'vue-router'
         <RouterLink class="primary-button" to="/review">探索在线复习 <span aria-hidden="true">→</span></RouterLink>
         <RouterLink class="text-link" to="/register">认识你的学习空间 <span aria-hidden="true">↗</span></RouterLink>
       </div>
-      <div class="launch-note"><span class="note-dot"></span>邮箱注册已开放 · 登录与复习功能建设中</div>
+      <div class="launch-note"><span class="note-dot"></span>邮箱注册与登录已开放 · 复习功能建设中</div>
     </div>
     <div class="study-visual" aria-hidden="true">
       <div class="visual-orbit orbit-one"></div><div class="visual-orbit orbit-two"></div>

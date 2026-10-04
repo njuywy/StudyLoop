@@ -89,7 +89,7 @@ curl --fail http://127.0.0.1:8000/api/v1/health
 | `PAGES_URL` | 默认 `https://njuywy.github.io/StudyLoop/`；必须是带末尾 `/` 的 HTTPS 基础地址，无 query/hash |
 | `REGISTER_LIMIT`、`RESEND_LIMIT` | 每客户端 IP、10 分钟窗口分别最多 10/20 次有效格式请求，可设置正整数 |
 
-邮件地址去除首尾空白并统一小写；当前仅接受无需 SMTPUTF8 的邮箱地址。昵称空白默认“学习者”，密码保留空格且按 Unicode 字符计数。账号的邮箱验证、启用和角色独立；注册不授予管理员，也不产生登录会话。密码使用 Argon2id；邮箱令牌只存 SHA-256 摘要，24 小时有效且单次消费。后续登录切片复用 `users.id`，不得重新定义账号身份。
+邮件地址去除首尾空白并统一小写；当前仅接受无需 SMTPUTF8 的邮箱地址。昵称空白默认“学习者”，密码保留空格且按 Unicode 字符计数。账号的邮箱验证、启用和角色独立；注册不授予管理员，也不产生登录会话。密码使用 Argon2id；邮箱令牌只存 SHA-256 摘要，24 小时有效且单次消费。登录与会话复用 `users.id`，不得重新定义账号身份。
 
 重发请求另有按归一化邮箱的 60 秒冷却，存在和不存在的邮箱都计数；成功注册发信后 60 秒内不会再次投递。入口限流记录保存在 PostgreSQL，进程重启仍生效，过期记录随请求清理。Nginx 覆盖 X-Forwarded-For，Uvicorn 仅信任 loopback 代理，不应扩大受信代理范围。
 
@@ -98,6 +98,12 @@ curl --fail http://127.0.0.1:8000/api/v1/health
 升级时先安装 `requirements.lock`，运行 Alembic `upgrade head`，再重启 API。同步更新 Nginx 的 `proxy_read_timeout 120s` 并通过 `nginx -t` 后 reload，以容纳 TLS、认证与投递的多个 socket 操作；前端等待最长 125 秒。不要在生产启用 SMTP debug、记录请求体或完整验证链接。
 
 以受控邮箱在 Pages 注册，实际收件后打开 `#/verify-email?token=…`，点击确认验证，验证成功不会自动登录。故障验收与手机复核以 [Ticket #3](https://github.com/njuywy/StudyLoop/issues/3) 的 TC-07 为准；测试邮件边界及模拟浏览器不能代替生产 TLS/认证和真实收件。
+
+## 登录与会话
+
+`0003_sessions` 迁移建立 `auth_sessions` 表和账号变为禁用或未验证时撤销会话的数据库规则。会话使用随机 Bearer token；数据库只保存 SHA-256 摘要，默认 12 小时有效。`GET /api/v1/me` 每次查询当前会话及账号验证、启用状态；退出在服务端撤销当前会话。账号禁用后旧会话不会因恢复账号而重新生效。前端只在当前标签页的 `sessionStorage` 保存 token 和到期时间，收到 401 或到期后清理并转向登录；网络错误保留会话供重试。API 与浏览器响应不写入原始 token、密码摘要或其他用户会话。
+
+`LOGIN_LIMIT` 默认每客户端 IP 在 10 分钟内最多 10 次尝试，与注册/重发共用 PostgreSQL 限流表。登录失败对错误密码、未验证、禁用和不存在账号返回统一的安全提示；限流返回 429。生产数据库不运行用例；由操作者提供已运行的隔离 `TEST_DATABASE_URL` 后执行真实 PostgreSQL 会话测试。登录页面、受保护复习页和个人中心的实际线上手机验收以 [Ticket #4](https://github.com/njuywy/StudyLoop/issues/4) 为准。
 
 ## 首次 HTTPS 签发
 

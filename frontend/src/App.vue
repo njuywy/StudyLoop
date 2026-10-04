@@ -2,6 +2,11 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { checkPlatformConnection } from './api'
+import { logout, profile, token } from './session'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const logoutError = ref('')
 
 const status = ref<'checking' | 'ready' | 'unavailable'>('checking')
 let controller: AbortController | undefined
@@ -26,6 +31,13 @@ onBeforeUnmount(() => {
   controller?.abort()
   if (timeout) clearTimeout(timeout)
 })
+
+async function signOut() {
+  logoutError.value = ''
+  const result = await logout()
+  if (result.ok) await router.push('/login')
+  else logoutError.value = result.message
+}
 </script>
 
 <template>
@@ -42,12 +54,13 @@ onBeforeUnmount(() => {
         <RouterLink to="/profile">个人中心</RouterLink>
       </nav>
       <div class="account-links">
-        <RouterLink class="login-link" to="/login">登录</RouterLink>
-        <RouterLink class="small-button" to="/register">注册账号 <span aria-hidden="true">↗</span></RouterLink>
+        <template v-if="token"><RouterLink class="login-link" to="/profile">{{ profile?.nickname || '我的账号' }}</RouterLink><button class="mode-button" @click="signOut">退出</button></template>
+        <template v-else><RouterLink class="login-link" to="/login">登录</RouterLink><RouterLink class="small-button" to="/register">注册账号 <span aria-hidden="true">↗</span></RouterLink></template>
       </div>
     </div>
   </header>
   <main id="content" tabindex="-1"><RouterView /></main>
+  <p v-if="logoutError" role="alert" class="section-width form-message">{{ logoutError }}</p>
   <footer class="site-footer">
     <div><strong>StudyLoop</strong><span>慢一点，学得更扎实。</span></div>
     <div class="connection-area">
