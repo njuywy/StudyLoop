@@ -102,3 +102,35 @@ test('a late admin list cannot leak after logout and ordinary-user login', async
   await expect(page.getByText(admin.email, { exact: true })).toHaveCount(0)
   await expect(page.getByRole('navigation').getByRole('link', { name: '用户管理' })).toHaveCount(0)
 })
+
+test('admin deep links return after login and after session expiry', async ({ page }) => {
+  let expired = false
+  let logins = 0
+  await page.route(`${api}/admin/users?*`, route => route.fulfill(expired
+    ? { status: 401, json: { code: 'UNAUTHORIZED' } }
+    : { json: { page: 1, page_size: 20, total: 1, items: [full(admin)] } }))
+  await page.route(`${api}/auth/login`, route => {
+    expired = false
+    logins++
+    return route.fulfill({ json: { token: 'fresh-M-' + logins, expires_at: new Date(Date.now() + 60_000).toISOString(), user: admin } })
+  })
+  await page.goto('./')
+  await page.evaluate(() => sessionStorage.clear())
+  await page.goto('about:blank')
+  await page.goto('./#/admin/users')
+  for (let iteration = 0; iteration < 2; iteration++) {
+    await expect(page.getByRole('heading', { name: '登录 StudyLoop' })).toBeVisible()
+    await expect(page).toHaveURL(/redirect=\/admin\/users/)
+    await page.getByLabel('邮箱', { exact: true }).fill(admin.email)
+    await page.getByLabel('密码', { exact: true }).fill('admin password')
+    await page.getByRole('button', { name: '登录', exact: true }).click()
+    await expect(page.getByRole('heading', { name: '用户管理', exact: true })).toBeVisible()
+    await expect(page.getByText(admin.email, { exact: true })).toBeVisible()
+    if (iteration === 0) {
+      expired = true
+      await page.getByRole('button', { name: '刷新列表' }).click()
+      await expect(page.getByRole('alert')).toContainText('登录状态已失效')
+    }
+  }
+  expect(logins).toBe(2)
+})
