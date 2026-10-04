@@ -11,3 +11,7 @@ dist/
 playwright-report/
 test-results/
 .DS_Store
+
+# User-supplied private study material is deployed through authenticated storage.
+/docs/案例冲刺宝典.pdf
+/docs/案例冲刺宝典.pdf:Zone.Identifier

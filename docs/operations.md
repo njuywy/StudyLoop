@@ -217,3 +217,35 @@ PYTHONPATH=src /srv/studyloop/venv/bin/python -m dotenv -f /etc/studyloop/backen
 `PATCH /api/v1/admin/users/{id}/status` 仅接受布尔 `enabled`，仅允许普通用户目标；管理员（含自身）受保护。禁用复用 `0003_sessions` 数据库触发器，在同一事务撤销全部会话；恢复不恢复旧会话，必须用当前有效密码重新登录。重复禁用/恢复保持稳定；锁按用户 ID 顺序取得以避免管理员相互操作死锁。不新增迁移，部署代码后重启服务即可。
 
 线上角色与实际命令验收按 [Ticket #8](https://github.com/njuywy/StudyLoop/issues/8) TC-07，使用管理员 M、普通 A/B 的独立浏览器上下文。此命令交付不代表已替某个生产账号授予角色；需选定实际已验证邮箱。测试命令、禁用及故障注入只针对操作者提供的已有隔离测试数据库。
+
+## 私有复习资料
+
+复习资料由运维在网页之外导入。`0005_review_content` 保存资料、目录与知识点的结构化内容；`REVIEW_DIRECTORY` 默认 `/srv/studyloop/data/review`，用于不可变 PDF/图片资源包，API 账号只需读取。该路径不能作为 Nginx 静态目录或 Pages 发布目录，源 PDF、提取内容及 coverage 文件不得加入公开仓库。现有 systemd 保护允许读取这里；导入由 `weiyu` 在服务进程外执行，不需放宽 API 的只读文件系统。
+
+本地准备首章（在仓库根目录，输出路径必须尚不存在）：
+
+```bash
+PYTHONPATH=backend/src uv run --project backend python -m studyloop.content_import build \
+  docs/案例冲刺宝典.pdf /tmp/studyloop-private-chapter1 \
+  --start-page 21 --end-page 48 --title 案例冲刺宝典
+PYTHONPATH=backend/src uv run --project backend python -m studyloop.content_import validate \
+  /tmp/studyloop-private-chapter1
+```
+
+构建采用 [PyMuPDF 的文字、图像和表格接口](https://pymupdf.readthedocs.io/en/latest/page.html)，按 PDF 书签实际标题位置切分，而不是按页平均切分。正文换行合并，父节点引言保留；复杂表格、嵌入图像以高清局部图保留原版关系。`manifest.json` 保存稳定 ID、正文块锚点、来源与资源校验值，`coverage.json` 记录各来源行归为标题、正文、图表、页眉页脚或斜向水印，供对照核验。当前工具针对本次有文字/书签的资料；无法定位标题、空叶节点和未归属正文会终止构建，不假装完成。其他版式需核对后再适配。
+
+安装锁定依赖、执行 `alembic upgrade head` 后，将经核对的完整资源包通过 SSH 上传到服务器私有临时目录，再执行：
+
+```bash
+sudo install -d -m 0700 -o weiyu -g weiyu /srv/studyloop/data/review
+cd /srv/studyloop/app/backend
+PYTHONPATH=src /srv/studyloop/venv/bin/python -m dotenv -f /etc/studyloop/backend.env run -- \
+  /srv/studyloop/venv/bin/python -m studyloop.content_import publish /tmp/studyloop-private-chapter1
+sudo systemctl restart studyloop-api
+```
+
+发布先验证源文件与所有资源校验值，再创建不可变版本目录，最后在数据库事务和资料级锁内切换引用。相同资源包可以重跑；追加章节须包含此前已发布知识点，保持原 ID/锚点，不能退回仅含部分旧内容的包。导入失败不删除已发布资源；确认结果不明时重新读取数据库引用，不删候选。历史和失败候选可能留在私有目录，核实数据库及备份没有引用后才由运维清理，不在请求中自动删资源。
+
+备份时先备份数据库，再备份包含旧/新版本的整个复习资源目录；清理旧包期间不得执行此流程。恢复到既有隔离环境时同时还原数据库与对应版本目录，保持目录 `0700`、文件 `0600` 和 API 账号所有权，然后验证目录、知识点、图表与原文都可通过认证接口读取。不要用破坏性数据库降级或覆盖生产数据验证恢复。
+
+部署核查：有效登录后读取 `/api/v1/review/books` 和目录，打开首章、放大图表、对照来源页；未登录请求资料、正文、图片、PDF 和原页均应拒绝。响应使用 `Cache-Control: no-store`，前端以带会话的请求读取图片 Blob 并在退出/换号后释放。阅读深链接使用 `#/review?book=资料ID&point=知识点ID`，兼容原有登录返回白名单。完整内容与真实设备验收记录在相应 Ticket，缺少隔离 PostgreSQL 连接时不能宣称已验证迁移/事务。

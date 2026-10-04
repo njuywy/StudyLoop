@@ -75,7 +75,7 @@ export function saveSession(value: string, user: Profile, expiresAt: string) {
 
 type Result<T> = { ok: true; data: T } | { ok: false; status: number; message: string }
 
-async function request<T>(path: string, options: RequestInit = {}, useToken = true, image = false): Promise<Result<T>> {
+export async function request<T>(path: string, options: RequestInit = {}, useToken = true, image = false): Promise<Result<T>> {
   const requestToken = token.value
   const requestVersion = sessionVersion
   const isCurrentSession = () => !useToken || (sessionVersion === requestVersion && token.value === requestToken)
@@ -90,6 +90,10 @@ async function request<T>(path: string, options: RequestInit = {}, useToken = tr
     if (!isCurrentSession()) return stale()
     if (response.status === 401 && useToken) expireSession()
     if (!response.ok) {
+      if (path.includes('/review/')) {
+        const message = typeof data === 'object' && data !== null && 'message' in data && typeof data.message === 'string' ? data.message : '复习资料暂不可用，请稍后重试。'
+        return { ok: false, status: response.status, message }
+      }
       const code = typeof data === 'object' && data !== null && 'code' in data ? data.code : ''
       if (response.status === 403) return { ok: false, status: 403, message: '仅管理员可以访问用户管理。' }
       if (code === 'ADMIN_STATUS_PROTECTED') return { ok: false, status: response.status, message: '不能修改管理员的启用状态，请刷新列表。' }

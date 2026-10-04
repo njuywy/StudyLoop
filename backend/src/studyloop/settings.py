@@ -20,6 +20,7 @@ class Settings:
     login_limit: int = 10
     password_reset_limit: int = 10
     avatar_directory: str = "/srv/studyloop/data/avatars"
+    review_directory: str = "/srv/studyloop/data/review"
 
     def __post_init__(self):
         if self.smtp_tls_mode not in {"starttls", "ssl"}:
@@ -84,4 +85,5 @@ class Settings:
             login_limit=int(os.environ.get("LOGIN_LIMIT", "10")),
             password_reset_limit=int(os.environ.get("PASSWORD_RESET_LIMIT", "10")),
             avatar_directory=os.environ.get("AVATAR_DIRECTORY", "/srv/studyloop/data/avatars"),
+            review_directory=os.environ.get("REVIEW_DIRECTORY", "/srv/studyloop/data/review"),
         )
