@@ -26,7 +26,7 @@ const router = createRouter({
     { path: '/admin/users', component: AdminView, meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', component: ComingSoonView, meta: { title: '页面暂不可用', label: '返回首页' } },
   ],
-  scrollBehavior: () => ({ top: 0 }),
+  scrollBehavior: to => to.path === '/review' ? false : { top: 0 },
 })
 
 router.beforeEach(to => {

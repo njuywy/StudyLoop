@@ -73,7 +73,7 @@ export function saveSession(value: string, user: Profile, expiresAt: string) {
   scheduleExpiry(Date.parse(expiresAt))
 }
 
-type Result<T> = { ok: true; data: T } | { ok: false; status: number; message: string }
+type Result<T> = { ok: true; data: T } | { ok: false; status: number; message: string; data?: unknown }
 
 export async function request<T>(path: string, options: RequestInit = {}, useToken = true, image = false): Promise<Result<T>> {
   const requestToken = token.value
@@ -92,7 +92,7 @@ export async function request<T>(path: string, options: RequestInit = {}, useTok
     if (!response.ok) {
       if (path.includes('/review/')) {
         const message = typeof data === 'object' && data !== null && 'message' in data && typeof data.message === 'string' ? data.message : '复习资料暂不可用，请稍后重试。'
-        return { ok: false, status: response.status, message }
+        return { ok: false, status: response.status, message, data }
       }
       const code = typeof data === 'object' && data !== null && 'code' in data ? data.code : ''
       if (response.status === 403) return { ok: false, status: 403, message: '仅管理员可以访问用户管理。' }
