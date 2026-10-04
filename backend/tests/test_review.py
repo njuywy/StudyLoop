@@ -1,5 +1,6 @@
 import json
 from dataclasses import replace
+from pathlib import Path
 
 import pymupdf
 import pytest
@@ -32,7 +33,7 @@ def bundle(tmp_path):
         for y in (360, 410, 460):
             first.draw_line((75, y), (475, y))
         first.insert_text((90, 390), "A")
-        first.insert_text((290, 390), "B")
+        first.insert_text((472, 390), "B")  # Slightly overhangs the last table border.
         first.insert_text((90, 440), "C")
         first.insert_text((290, 440), "D")
         second = pdf.new_page()
@@ -61,6 +62,13 @@ def test_pdf_headings_figures_cross_page_and_stable_ids(bundle, tmp_path):
     assert points[0]["blocks"][0]["text"] == "Parent introduction."
     assert points[1]["source_start"] == 1 and points[1]["source_end"] == 2
     assert any(b["type"] == "figure" for b in points[1]["blocks"])
+    with pymupdf.open(bundle / "source.pdf") as source:
+        cell = source[0].search_for("B")[0]
+        assert any(
+            (pymupdf.Rect(b["bbox"]) + (-2, -2, 2, 2)).contains(cell)
+            for b in points[1]["blocks"]
+            if b["type"] == "figure" and b["page"] == 1
+        )
     assert any("Continued example" in b.get("text", "") for b in points[1]["blocks"])
     assert points[0]["previous_id"] is None and points[-1]["next_id"] is None
     repeat = build_bundle(bundle / "source.pdf", tmp_path / "again", 1, 2, "Test material")
@@ -69,7 +77,8 @@ def test_pdf_headings_figures_cross_page_and_stable_ids(bundle, tmp_path):
     assert {row["kind"] for row in coverage} >= {"heading", "paragraph", "figure"}
 
 
-def test_mid_page_chapter_boundary_preserves_tail_and_stable_partial_content(tmp_path):
+@pytest.fixture
+def chapter_bundles(tmp_path):
     source = tmp_path / "chapters.pdf"
     with pymupdf.open() as pdf:
         for heading in ["Cover", "Contents"]:
@@ -93,22 +102,35 @@ def test_mid_page_chapter_boundary_preserves_tail_and_stable_partial_content(tmp
             ]
         )
         pdf.save(source)
-    partial = build_bundle(
+    build_bundle(
         source, tmp_path / "partial", 3, 4, "Book", stop_before="Second chapter", margin_top=55
     )
-    full = build_bundle(source, tmp_path / "full", 3, 4, "Book", margin_top=55)
+    build_bundle(source, tmp_path / "full", 3, 4, "Book", margin_top=55)
+    return tmp_path / "partial", tmp_path / "full"
+
+
+def test_mid_page_chapter_boundary_preserves_tail_and_stable_partial_content(chapter_bundles):
+    partial_dir, full_dir = chapter_bundles
+    partial, full = validate_bundle(partial_dir), validate_bundle(full_dir)
     assert len(partial["points"]) == 2
     assert partial["points"][-1]["source_end"] == 4
     assert partial["points"][-1]["blocks"][-1]["text"] == "Tail belongs to the first chapter"
     assert "部分章节" in partial["book"]["coverage_label"]
+    assert full["book"]["coverage_label"] == "全书内容已收录"
     for old, new in zip(partial["points"], full["points"], strict=False):
         assert old["id"] == new["id"] and old["blocks"] == new["blocks"]
-    assert validate_bundle(tmp_path / "partial") == partial
-    coverage = json.loads((tmp_path / "partial" / "coverage.json").read_text())
+    coverage = json.loads((partial_dir / "coverage.json").read_text())
     assert any(row["kind"] == "outside-selection" for row in coverage)
     with pytest.raises(ValueError, match="uniquely"):
-        build_bundle(source, tmp_path / "bad", 3, 4, "Book", stop_before="Missing")
-    assert not (tmp_path / "bad").exists()
+        build_bundle(
+            partial_dir / "source.pdf",
+            partial_dir.parent / "bad",
+            3,
+            4,
+            "Book",
+            stop_before="Missing",
+        )
+    assert not (partial_dir.parent / "bad").exists()
 
 
 @pytest.mark.postgres
@@ -304,3 +326,141 @@ def test_code_excerpt_retains_indentation_as_zoomable_region(tmp_path):
         assert len(regions) == 1
         assert regions[0].x0 <= 75 and regions[0].y0 < 100
         assert regions[0].y1 > 116 and regions[0].y1 < 160
+
+
+def test_formula_fraction_keeps_geometry_and_surrounding_prose(tmp_path):
+    source = tmp_path / "formula.pdf"
+    with pymupdf.open() as pdf:
+        page = pdf.new_page()
+        page.insert_text((75, 90), "Formula chapter")
+        page.insert_text((75, 125), "Before the equation.")
+        # Rename a base-14 fixture font to exercise math layout without bundling
+        # either the private textbook or an external font dependency.
+        font = page.insert_font(fontname="tiro")
+        pdf.xref_set_key(font, "BaseFont", "/FixtureMath-Regular")
+        page.insert_text((190, 155), "R =", fontname="tiro")
+        page.insert_text((225, 148), "1", fontname="tiro")
+        page.insert_text((225, 164), "2", fontname="tiro")
+        page.draw_line((220, 153), (235, 153))
+        page.insert_text((75, 198), "After the equation.")
+        pdf.set_toc([[1, "Formula chapter", 1, 75]])
+        pdf.save(source)
+    manifest = build_bundle(source, tmp_path / "formula", 1, 1, "Formula")
+    blocks = manifest["points"][0]["blocks"]
+    assert [b["type"] for b in blocks] == ["paragraph", "figure", "paragraph"]
+    assert blocks[0]["text"] == "Before the equation."
+    assert blocks[-1]["text"] == "After the equation."
+    assert blocks[1]["bbox"][1] < 148 and blocks[1]["bbox"][3] >= 164
+    assert validate_bundle(tmp_path / "formula") == manifest
+
+
+@pytest.mark.postgres
+def test_expansion_preserves_two_books_two_users_and_failed_publication(
+    reset_api, bundle, chapter_bundles, tmp_path, monkeypatch
+):
+    from contextlib import contextmanager
+    from uuid import uuid4
+
+    from studyloop import content_import
+
+    client, app, settings, _, _, email, account, _ = reset_api
+    settings = replace(settings, review_directory=str(tmp_path / "private"))
+    app.state.settings = settings
+    partial_dir, full_dir = chapter_bundles
+    partial, full = validate_bundle(partial_dir), validate_bundle(full_dir)
+    other = validate_bundle(bundle)
+    books = [partial["book"]["id"], other["book"]["id"]]
+    headers = [
+        {"Authorization": "Bearer " + login(client, address).json()["token"]}
+        for address in [email, account("other")]
+    ]
+    checks = []
+    try:
+        publish_bundle(bundle, settings)
+        publish_bundle(partial_dir, settings)
+        for h, mastery in zip(headers, ["needs_review", "mastered"], strict=True):
+            for material in [partial, other]:
+                point = material["points"][-1]
+                state_url = f"/api/v1/me/review/points/{point['id']}/state"
+                state = client.patch(
+                    state_url,
+                    headers=h,
+                    json={
+                        "bookmarked": True,
+                        "mastery": mastery,
+                        "expected_revision": 0,
+                        "operation_id": str(uuid4()),
+                    },
+                )
+                assert state.status_code == 200
+                position_url = f"/api/v1/me/review/books/{material['book']['id']}/position"
+                position = client.put(
+                    position_url,
+                    headers=h,
+                    json={
+                        "point_id": point["id"],
+                        "block_id": point["blocks"][-1]["id"],
+                        "offset": 0.4,
+                        "content_version": material["book"]["version"],
+                        "expected_revision": 0,
+                        "operation_id": str(uuid4()),
+                    },
+                )
+                assert position.status_code == 200
+                checks.extend([(h, state_url, state.json()), (h, position_url, position.json())])
+
+        def snapshot():
+            with connect(settings) as connection:
+                return (
+                    connection.execute(
+                        "SELECT * FROM review_books WHERE id=ANY(%s) ORDER BY id", (books,)
+                    ).fetchall(),
+                    connection.execute(
+                        "SELECT * FROM review_points WHERE book_id=ANY(%s) ORDER BY id", (books,)
+                    ).fetchall(),
+                )
+
+        baseline = snapshot()
+        original = (full_dir / "manifest.json").read_text()
+        altered = json.loads(original)
+        altered["points"][0]["blocks"][0]["text"] = "Changed published text"
+        (full_dir / "manifest.json").write_text(json.dumps(altered))
+        with pytest.raises(ValueError, match="published content"):
+            publish_bundle(full_dir, settings)
+        (full_dir / "manifest.json").write_text(original)
+        assert snapshot() == baseline
+
+        @contextmanager
+        def fail_after_book_switch(settings):
+            with connect(settings) as connection:
+
+                class InterruptedConnection:
+                    def execute(self, query, params=None):
+                        if "INSERT INTO review_points" in query:
+                            raise RuntimeError("controlled publication interruption")
+                        return connection.execute(query, params)
+
+                yield InterruptedConnection()
+
+        with monkeypatch.context() as patch:
+            patch.setattr(content_import, "connect", fail_after_book_switch)
+            with pytest.raises(RuntimeError, match="interruption"):
+                publish_bundle(full_dir, settings)
+        assert snapshot() == baseline
+        for _ in range(2):
+            publish_bundle(full_dir, settings)
+        expanded = snapshot()
+        with pytest.raises(ValueError, match="cannot remove"):
+            publish_bundle(partial_dir, settings)
+        assert snapshot() == expanded
+        for h, path, expected in checks:
+            assert client.get(path, headers=h).json() == expected
+        for point in [*full["points"], *other["points"]]:
+            response = client.get(f"/api/v1/review/points/{point['id']}", headers=headers[0])
+            assert response.status_code == 200 and response.json() == point
+        for book in baseline[0]:
+            assert (Path(settings.review_directory) / book["storage_key"] / "source.pdf").is_file()
+    finally:
+        with connect(settings) as connection:
+            connection.execute("DELETE FROM review_points WHERE book_id=ANY(%s)", (books,))
+            connection.execute("DELETE FROM review_books WHERE id=ANY(%s)", (books,))
