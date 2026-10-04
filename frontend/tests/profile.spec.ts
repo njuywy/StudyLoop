@@ -123,3 +123,32 @@ test('password change finishing after navigation still redirects the revoked ses
   await expect(page.getByRole('heading', { name: '登录 StudyLoop' })).toBeVisible()
   await expect(page.getByRole('alert')).toContainText('密码已更新')
 })
+
+test('a nickname save remains pending across navigation before the next save is allowed', async ({ page }) => {
+  let current = { ...user }
+  let release: (() => void) | undefined
+  const waiting = new Promise<void>(resolve => { release = resolve })
+  let writes = 0
+  await page.route(`${api}/me`, async route => {
+    if (route.request().method() === 'PATCH') {
+      writes++
+      current = { ...current, nickname: route.request().postDataJSON().nickname }
+      if (writes === 1) await waiting
+    }
+    await route.fulfill({ json: current })
+  })
+  await page.goto('./#/profile')
+  await page.getByLabel('昵称', { exact: true }).fill('第一次保存')
+  await page.getByRole('button', { name: '保存昵称' }).click()
+  await expect.poll(() => writes).toBe(1)
+  await page.getByRole('navigation').getByRole('link', { name: '在线复习' }).click()
+  await page.getByRole('navigation').getByRole('link', { name: '个人中心' }).click()
+  await expect(page.getByRole('button', { name: '正在保存…' })).toBeDisabled()
+  await expect(page.getByLabel('昵称', { exact: true })).toBeDisabled()
+  release?.()
+  await expect(page.getByRole('button', { name: '保存昵称' })).toBeEnabled()
+  await page.getByLabel('昵称', { exact: true }).fill('第二次保存')
+  await page.getByRole('button', { name: '保存昵称' }).click()
+  await expect(page.getByRole('heading', { name: '你好，第二次保存' })).toBeVisible()
+  expect(writes).toBe(2)
+})

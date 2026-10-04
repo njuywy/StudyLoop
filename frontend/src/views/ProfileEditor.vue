@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
-import { changePassword, profile, saveNickname } from '../session'
+import { changePassword, nicknameSaving as nicknamePending, profile, saveNickname } from '../session'
 
 const nickname = ref(profile.value?.nickname || '')
-const nicknamePending = ref(false)
 const nicknameMessage = ref('')
 const nicknameSaved = ref(false)
 const oldPassword = ref('')
@@ -24,11 +23,9 @@ async function updateNickname() {
     nicknameMessage.value = '昵称需要 1～30 个字符。'
     return
   }
-  nicknamePending.value = true
   nicknameMessage.value = ''
   const result = await saveNickname(value)
   if (!active) return
-  nicknamePending.value = false
   if (result.ok) {
     nickname.value = result.data.nickname
     nicknameSaved.value = true

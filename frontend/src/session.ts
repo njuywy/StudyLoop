@@ -7,6 +7,7 @@ const storedToken = sessionStorage.getItem('studyloop_session') || ''
 const storedExpiry = Date.parse(sessionStorage.getItem('studyloop_session_expires_at') || '')
 export const token = ref(storedToken && storedExpiry > Date.now() ? storedToken : '')
 export const profile = ref<Profile | null>(null)
+export const nicknameSaving = ref(false)
 export const sessionEndReason = ref<'expired' | 'password-changed' | null>(storedToken && storedExpiry <= Date.now() ? 'expired' : null)
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let sessionVersion = 0
@@ -39,6 +40,7 @@ export function clearSession() {
   expiryTimer = undefined
   token.value = ''
   profile.value = null
+  nicknameSaving.value = false
   sessionEndReason.value = null
 }
 
@@ -48,6 +50,7 @@ export function saveSession(value: string, user: Profile, expiresAt: string) {
   sessionStorage.setItem('studyloop_session_expires_at', expiresAt)
   token.value = value
   profile.value = user
+  nicknameSaving.value = false
   sessionEndReason.value = null
   if (expiryTimer) clearTimeout(expiryTimer)
   scheduleExpiry(Date.parse(expiresAt))
@@ -100,16 +103,22 @@ export async function loadProfile() {
 }
 
 export async function saveNickname(nickname: string) {
+  if (nicknameSaving.value) return { ok: false as const, status: 409, message: '昵称正在保存，请稍后。' }
   const requestVersion = sessionVersion
-  const result = await request<Profile>('/me', {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname }),
-  })
-  if (requestVersion !== sessionVersion) return { ok: false as const, status: -1, message: '' }
-  if (result.ok) {
-    profileRevision++
-    profile.value = result.data
+  nicknameSaving.value = true
+  try {
+    const result = await request<Profile>('/me', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname }),
+    })
+    if (requestVersion !== sessionVersion) return { ok: false as const, status: -1, message: '' }
+    if (result.ok) {
+      profileRevision++
+      profile.value = result.data
+    }
+    return result
+  } finally {
+    if (requestVersion === sessionVersion) nicknameSaving.value = false
   }
-  return result
 }
 
 export async function changePassword(oldPassword: string, newPassword: string) {
