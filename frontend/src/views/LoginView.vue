@@ -8,7 +8,7 @@ const route = useRoute()
 const email = ref('')
 const password = ref('')
 const pending = ref(false)
-const message = ref(route.query.expired === '1' ? '登录状态已失效，请重新登录。' : '')
+const message = ref(route.query.changed === '1' ? '密码已更新，请使用新密码重新登录。' : route.query.expired === '1' ? '登录状态已失效，请重新登录。' : '')
 
 async function submit() {
   if (pending.value) return

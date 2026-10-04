@@ -60,6 +60,23 @@ def current_user(request: Request):
     return row
 
 
+def lock_current_user(connection, authenticated_user):
+    """Recheck credentials after taking the account lock used by credential mutations."""
+    user = connection.execute(
+        "SELECT * FROM users WHERE id = %s FOR UPDATE", (authenticated_user["id"],)
+    ).fetchone()
+    if not user or not user["email_verified"] or not user["enabled"]:
+        unauthorized()
+    active = connection.execute(
+        "SELECT 1 FROM auth_sessions WHERE digest = %s AND user_id = %s "
+        "AND revoked_at IS NULL AND expires_at > %s",
+        (authenticated_user["digest"], user["id"], now()),
+    ).fetchone()
+    if not active:
+        unauthorized()
+    return user
+
+
 @auth_router.post("/login")
 def login(body: LoginInput, request: Request):
     settings = request.app.state.settings

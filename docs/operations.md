@@ -113,6 +113,12 @@ curl --fail http://127.0.0.1:8000/api/v1/health
 
 生产收件与重新登录按 [Ticket #5](https://github.com/njuywy/StudyLoop/issues/5) TC-07 验收。浏览器测试使用模拟 API，真实 PostgreSQL 的锁竞争与回滚用例必须连接操作者提供的已有隔离测试库；不要在生产库运行测试。日志中不得加入完整重置链接、令牌或新密码。
 
+## 用户自助资料维护
+
+个人中心允许修改昵称与密码，邮箱保持只读。`PATCH /api/v1/me` 只接收昵称，trim 后为 1～30 字符；`POST /api/v1/me/change-password` 必须验证旧密码，新密码为 12～128 字符且保留空格。改密成功后全部会话与未使用重置链接失效，前端引导使用新密码重新登录。错旧密码返回安全的 400，保持当前会话供重试。
+
+受保护的写操作使用 `sessions.lock_current_user`：先锁账号，再重新检查会话与账号资格，防止请求等待账号锁期间被改密、重置或禁用后继续写入。密码修改复用上节的事务内撤销操作。昵称、账号身份和密码的状态仅依据服务端会话，客户端提交的 ID、邮箱、角色或启用字段被拒绝。真实设备与故障交互验收见 [Ticket #6](https://github.com/njuywy/StudyLoop/issues/6)。
+
 ## 首次 HTTPS 签发
 
 IP 证书需要 Certbot 5.4+ 的 `--ip-address` 与短期 profile。本示例隔离安装最低支持版本；更换版本需确认兼容并记录实际版本，不覆盖系统其他 Certbot 服务。
