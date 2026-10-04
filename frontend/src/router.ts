@@ -8,7 +8,7 @@ import LoginView from './views/LoginView.vue'
 import ProtectedView from './views/ProtectedView.vue'
 import ForgotPasswordView from './views/ForgotPasswordView.vue'
 import ResetPasswordView from './views/ResetPasswordView.vue'
-import { sessionExpired, token } from './session'
+import { sessionEndReason, token } from './session'
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -28,13 +28,15 @@ const router = createRouter({
 
 router.beforeEach(to => {
   if (to.meta.requiresAuth && !token.value) {
-    return { path: '/login', query: { redirect: to.fullPath, ...(sessionExpired.value ? { expired: '1' } : {}) } }
+    return { path: '/login', query: { redirect: to.fullPath, ...(sessionEndReason.value === 'expired' ? { expired: '1' } : {}) } }
   }
 })
 
-watch(sessionExpired, expired => {
+watch(sessionEndReason, reason => {
   const current = router.currentRoute.value
-  if (expired && current.meta.requiresAuth) {
+  if (reason === 'password-changed') {
+    void router.replace({ path: '/login', query: { changed: '1' } })
+  } else if (reason === 'expired' && current.meta.requiresAuth) {
     void router.replace({ path: '/login', query: { redirect: current.fullPath, expired: '1' } })
   }
 })

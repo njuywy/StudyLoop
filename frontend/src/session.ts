@@ -7,13 +7,14 @@ const storedToken = sessionStorage.getItem('studyloop_session') || ''
 const storedExpiry = Date.parse(sessionStorage.getItem('studyloop_session_expires_at') || '')
 export const token = ref(storedToken && storedExpiry > Date.now() ? storedToken : '')
 export const profile = ref<Profile | null>(null)
-export const sessionExpired = ref(Boolean(storedToken && storedExpiry <= Date.now()))
+export const sessionEndReason = ref<'expired' | 'password-changed' | null>(storedToken && storedExpiry <= Date.now() ? 'expired' : null)
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let sessionVersion = 0
+let profileRevision = 0
 
 function expireSession() {
   clearSession()
-  sessionExpired.value = true
+  sessionEndReason.value = 'expired'
 }
 
 function scheduleExpiry(expiresAt: number) {
@@ -38,7 +39,7 @@ export function clearSession() {
   expiryTimer = undefined
   token.value = ''
   profile.value = null
-  sessionExpired.value = false
+  sessionEndReason.value = null
 }
 
 export function saveSession(value: string, user: Profile, expiresAt: string) {
@@ -47,7 +48,7 @@ export function saveSession(value: string, user: Profile, expiresAt: string) {
   sessionStorage.setItem('studyloop_session_expires_at', expiresAt)
   token.value = value
   profile.value = user
-  sessionExpired.value = false
+  sessionEndReason.value = null
   if (expiryTimer) clearTimeout(expiryTimer)
   scheduleExpiry(Date.parse(expiresAt))
 }
@@ -70,7 +71,7 @@ async function request<T>(path: string, options: RequestInit = {}, useToken = tr
     if (response.status === 401 && useToken) expireSession()
     if (!response.ok) {
       const code = typeof data === 'object' && data !== null && 'code' in data ? data.code : ''
-      return { ok: false, status: response.status, message: code === 'RATE_LIMITED' ? '登录尝试过于频繁，请稍后重试。' : response.status === 401 ? '邮箱或密码错误，或登录状态已失效。' : '请求暂未完成，请稍后重试。' }
+      return { ok: false, status: response.status, message: code === 'INVALID_CURRENT_PASSWORD' ? '旧密码不正确，请重试。' : code === 'RATE_LIMITED' ? '登录尝试过于频繁，请稍后重试。' : response.status === 401 ? '邮箱或密码错误，或登录状态已失效。' : '请求暂未完成，请稍后重试。' }
     }
     return { ok: true, data: data as T }
   } catch {
@@ -91,9 +92,36 @@ export async function login(email: string, password: string) {
 
 export async function loadProfile() {
   const requestVersion = sessionVersion
+  const revision = profileRevision
   const result = await request<Profile>('/me')
   if (result.ok && requestVersion !== sessionVersion) return { ok: false as const, status: -1, message: '' }
-  if (result.ok) profile.value = result.data
+  if (result.ok && revision === profileRevision) profile.value = result.data
+  return result
+}
+
+export async function saveNickname(nickname: string) {
+  const requestVersion = sessionVersion
+  const result = await request<Profile>('/me', {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname }),
+  })
+  if (requestVersion !== sessionVersion) return { ok: false as const, status: -1, message: '' }
+  if (result.ok) {
+    profileRevision++
+    profile.value = result.data
+  }
+  return result
+}
+
+export async function changePassword(oldPassword: string, newPassword: string) {
+  const requestVersion = sessionVersion
+  const result = await request<{ code: string }>('/me/change-password', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+  })
+  if (result.ok && requestVersion === sessionVersion) {
+    clearSession()
+    sessionEndReason.value = 'password-changed'
+  }
   return result
 }
 
