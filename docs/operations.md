@@ -190,3 +190,13 @@ dry-run 证明续期验证流程，不表示已经发生生产续期；单独运
 不要在操作记录、Actions 日志或工单中写入私钥、数据库密码或 SMTP 认证信息。
 
 依据：[GitHub Pages/Vite](https://vite.dev/guide/static-deploy.html#github-pages)、[Let’s Encrypt IP 证书与 Certbot](https://letsencrypt.org/2026/03/11/shorter-certs-certbot)、[Alembic](https://alembic.sqlalchemy.org/en/latest/tutorial.html)。
+
+## 私有头像
+
+`0004_avatar` 为账号增加当前头像文件引用。升级时安装锁定的 Pillow 与 multipart 依赖并执行迁移；`AVATAR_DIRECTORY` 默认 `/srv/studyloop/data/avatars`，必须持久化并允许 API 账号读写。文件按账号 UUID 分目录，文件名由服务器随机生成，不使用上传文件名。不要将该目录设为 Nginx 静态目录；备份与恢复时保持数据库及头像目录的一致性。
+
+`GET/PUT /api/v1/me/avatar` 均要求当前有效会话，PUT 使用 multipart 的 `file` 字段，只接受实际可解码且 MIME 相符的 JPEG/PNG/WebP。文件最多 2,097,152 字节（不含 multipart 包装），Nginx `client_max_body_size 3m` 保留包装余量。解码累计最多 1600 万像素、最多 32 帧；前端默认头像不会替代上传验证。读取不存在头像返回 `404 NO_AVATAR`，响应不缓存，也不返回磁盘路径。
+
+上传先在账号行锁内写入独立候选文件并同步内容，再提交数据库引用；读取也在同一锁内完成，避免读取与替换清理竞态。普通写入/事务失败保留原引用，清理未引用候选；成功后清理旧文件。清理会重新加锁读取当前引用，避免误删并发上传或“提交成功但确认响应丢失”的当前文件。若数据库或目录暂不可用，记录不含路径的延后清理警告，下一次上传自动重试。提交结果不确定时前端提示失败，重新读取确认当前图像，不承诺跨数据库与文件系统的原子提交。
+
+前端通过认证 fetch 取得 Blob，导航与个人中心共享显示；更换、退出、401 和切换账号时释放旧 object URL，迟到的旧账号请求不能覆盖新账号。真实文件系统/数据库故障与并发测试需要已有隔离测试库；真实手机文件选择、服务重启后头像持久化按 [Ticket #7](https://github.com/njuywy/StudyLoop/issues/7) 验收。

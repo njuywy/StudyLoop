@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 test('Pages subpath navigation and hash refresh keep the application available', async ({ page }) => {
   await page.route('https://124.220.147.193/api/v1/health', route => route.fulfill({
