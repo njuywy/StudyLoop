@@ -184,3 +184,45 @@ test('continuous scrolling initiates a save within five seconds without waiting 
   expect(server.writes.length).toBeGreaterThan(before)
   expect(server.writes.at(-1).block_id).not.toBe('p1-b0')
 })
+
+
+for (const changed of [false, true]) test(`old successful replay cannot replace a newer server position (new local candidate: ${changed})`, async ({ page }) => {
+  const server = await setup(page, { initial: location('p2', 'b10', 9) })
+  const old = location('p1', 'b0', 1)
+  const operation = { point_id: old.point_id, block_id: old.block_id, offset: old.offset, content_version: old.content_version, expected_revision: 0, operation_id: '12345678-1234-4234-8234-123456789012' }
+  await page.addInitScript(({ operation, changed }) => localStorage.setItem('studyloop_position:A:book:v1', JSON.stringify({ candidate: { ...operation, block_id: changed ? 'p1-b8' : operation.block_id }, baseRevision: 0, operation })), { operation, changed })
+  server.handler = r => r.fulfill({ json: { position: old } })
+  await page.goto('./#/review')
+  await expect.poll(() => server.writes.length).toBe(1)
+  if (changed) {
+    await expect(page.getByText('阅读位置有冲突，请选择')).toBeVisible()
+    await page.getByRole('button', { name: '使用服务器位置' }).click()
+  } else {
+    await expect(page.getByText('阅读位置已同步', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: '继续上次阅读' }).click()
+  }
+  await assertRestored(page, location('p2', 'b10', 9))
+})
+
+test('a delayed conflict save cannot navigate after account switch or a newer explicit selection', async ({ page }) => {
+  const server = await setup(page, { initial: location('p2', 'b4', 2) })
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  server.handler = async r => {
+    if (server.writes.length === 1) return r.fulfill({ status: 409, json: { position: location('p2', 'b5', 3), message: '冲突' } })
+    await gate
+    await r.fulfill({ json: { position: location('p1', 'b0', 4) } })
+  }
+  await page.goto('./#/review?point=p1')
+  await expect(page.getByText('阅读位置有冲突，请选择')).toBeVisible()
+  await page.getByRole('button', { name: '以本地位置继续并保存' }).click()
+  await expect.poll(() => server.writes.length).toBe(2)
+  await page.getByRole('button', { name: '退出', exact: true }).click()
+  await page.getByLabel('邮箱', { exact: true }).fill('B@example.com')
+  await page.getByLabel('密码', { exact: true }).fill('example password')
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  await page.goto('./#/profile')
+  await expect(page).toHaveURL(/#\/profile$/)
+  release(); await page.waitForTimeout(250)
+  await expect(page).toHaveURL(/#\/profile$/)
+})

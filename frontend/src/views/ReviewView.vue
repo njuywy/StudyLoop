@@ -68,9 +68,11 @@ async function chooseServer() {
   if (location) await continueReading(location)
 }
 async function chooseLocal() {
+  const current = revision
   readingActive = false
   const location = draft.value?.candidate
   await position.useLocal()
+  if (current !== revision) return
   if (!conflict.value && location) await continueReading(location)
 }
 function onVisibility() { if (document.hidden) void position.flush() }
@@ -113,7 +115,7 @@ function showFigure(assetId: string, alt: string) {
 async function select(id: string, restore: ReadingLocation | null = null) {
   suspendReading(); restoreTarget = restore; positionNotice.value = ''
   directory.value?.close()
-  if (id === currentId.value) { await activateReading(revision); return }
+  if (id === currentId.value) { await activateReading(++revision); return }
   await router.push({ path: '/review', query: { book: book.value?.id, point: id } })
 }
 async function refresh() {

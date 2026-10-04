@@ -99,10 +99,11 @@ export function useReadingPosition() {
       }
       return
     }
-    remote.value = result.data.position
+    const newerRemote = remote.value && remote.value.revision > result.data.position.revision
+    if (!newerRemote) remote.value = result.data.position
     if (draft.value) {
       if (samePlace(draft.value.candidate, operation)) draft.value = null
-      else { draft.value.baseRevision = result.data.position.revision; draft.value.operation = null }
+      else { draft.value.baseRevision = result.data.position.revision; draft.value.operation = null; if (newerRemote) conflict.value = true }
     }
     persist()
     if (draft.value) pauseTimer = setTimeout(() => void flush(), 1000)
