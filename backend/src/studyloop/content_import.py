@@ -111,6 +111,13 @@ def figure_regions(page):
             rect.include_rect(existing)
             regions.remove(existing)
         regions.append(rect)
+    regions = [
+        r
+        for i, r in enumerate(regions)
+        if not any(
+            other.contains(r) and (other != r or j < i) for j, other in enumerate(regions) if j != i
+        )
+    ]
     return sorted(regions, key=lambda r: (r.y0, r.x0))
 
 
