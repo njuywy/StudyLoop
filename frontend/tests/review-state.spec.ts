@@ -70,7 +70,7 @@ test('long lists keep paths, support failure retry, and clamp the final page aft
   const server = await setup(page)
   for (const state of server.states.values()) state.bookmarked = true
   server.failList = true
-  await page.goto('./#/review?list=bookmarked')
+  await page.goto('./#/review?book=book&list=bookmarked')
   await expect(page.getByRole('alert')).toHaveText('列表暂不可用')
   server.failList = false; await page.getByRole('button', { name: '重试列表' }).click()
   await expect(page.getByText('章节1', { exact: true })).toBeVisible()
@@ -139,7 +139,7 @@ test('late state save cannot appear on a different knowledge point or another ac
   await page.getByRole('button', { name: '退出', exact: true }).click()
   await page.getByLabel('邮箱', { exact: true }).fill('B@example.com'); await page.getByLabel('密码', { exact: true }).fill('example password')
   await page.getByRole('button', { name: '登录', exact: true }).click()
-  await page.goto('./#/review?list=bookmarked')
+  await page.goto('./#/review?book=book&list=bookmarked')
   await expect(page.getByText('还没有收藏', { exact: true })).toBeVisible()
 })
 

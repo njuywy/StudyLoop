@@ -24,6 +24,9 @@ const viewerTitle = ref('')
 const sourcePage = ref(0)
 const sourceMode = ref(false)
 const title = ref<HTMLElement>()
+const libraryTitle = ref<HTMLElement>()
+// Links created before multiple materials existed used the original case book.
+const legacyBookId = 'b10a696a1c6836149ed166d9e596741b'
 const currentId = computed(() => typeof route.query.point === 'string' ? route.query.point : '')
 const listFilter = computed(() => !currentId.value && (route.query.list === 'bookmarked' || route.query.list === 'needs_review') ? route.query.list : null)
 let revision = 0
@@ -123,8 +126,11 @@ async function select(id: string, restore: ReadingLocation | null = null) {
 }
 async function refresh() {
   suspendReading()
+  if (route.query.book !== book.value?.id) {
+    clear(); positionNotice.value = ''
+  }
   const current = ++revision
-  loading.value = true; error.value = ''; point.value = null; closeViewer()
+  loading.value = true; error.value = ''; point.value = null; closeViewer(); directory.value?.close()
   const identity = await loadProfile()
   if (current !== revision) return
   if (!identity.ok) {
@@ -136,8 +142,22 @@ async function refresh() {
   if (current !== revision) return
   if (!listing.ok) { loading.value = false; error.value = listing.message; return }
   books.value = listing.data.items
-  const bookId = typeof route.query.book === 'string' ? route.query.book : books.value[0]?.id
-  if (!bookId) { loading.value = false; return }
+  let bookId = typeof route.query.book === 'string' ? route.query.book : ''
+  if (!bookId && currentId.value) {
+    const target = await request<KnowledgePoint>(`/review/points/${encodeURIComponent(currentId.value)}`)
+    if (current !== revision) return
+    if (!target.ok) { loading.value = false; error.value = target.message; return }
+    bookId = target.data.book_id
+  } else if (!bookId && listFilter.value) bookId = legacyBookId
+  if (bookId && !route.query.book) {
+    await router.replace({ path: '/review', query: { ...route.query, book: bookId } }); return
+  }
+  if (!bookId) {
+    loading.value = false
+    await nextTick()
+    if (current === revision) { window.scrollTo({ top: 0, behavior: 'instant' }); libraryTitle.value?.focus({ preventScroll: true }) }
+    return
+  }
   const result = await request<{ book: ReviewBook; items: TocNode[] }>(`/review/books/${encodeURIComponent(bookId)}/toc`)
   if (current !== revision) return
   if (!result.ok) { loading.value = false; error.value = result.message; return }
@@ -176,10 +196,21 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="review-shell section-width">
-    <header class="review-intro"><div><span class="section-kicker">一次回顾，一点收获</span><h1>在线复习</h1><p>沿着章节，重新连接你的知识。</p></div><span class="reader-label">知识点阅读</span></header>
+    <header class="review-intro"><div><span class="section-kicker">一次回顾，一点收获</span><h1 ref="libraryTitle" tabindex="-1">在线复习</h1><p>{{ book ? '沿着章节，重新连接你的知识。' : '选一本资料，从上次停下的地方继续。' }}</p></div><RouterLink v-if="book || error" class="small-button" to="/review">返回知识库选择</RouterLink><span v-else class="reader-label">你的复习书架</span></header>
     <div v-if="loading" class="reading-state" role="status">正在读取复习资料…</div>
-    <div v-else-if="error" class="reading-state"><p role="alert">{{ error }}</p><button class="small-button" @click="refresh">重试</button><RouterLink class="text-link" to="/review">返回资料目录</RouterLink></div>
-    <div v-else-if="!book" class="reading-state"><h2>资料正在整理</h2><p>暂时没有可阅读的资料，请稍后再来。</p></div>
+    <div v-else-if="error" class="reading-state"><p role="alert">{{ error }}</p><button class="small-button" @click="refresh">重试</button></div>
+    <template v-else-if="!book">
+      <div v-if="!books.length" class="reading-state"><h2>资料正在整理</h2><p>暂时没有可阅读的资料，请稍后再来。</p><button class="small-button" @click="refresh">刷新知识库</button></div>
+      <nav v-else class="library-grid" aria-label="选择复习知识库">
+        <RouterLink v-for="item in books" :key="item.id" class="library-card" :to="{ path: '/review', query: { book: item.id } }">
+          <span class="library-icon" aria-hidden="true">▤</span><span class="library-type">章节知识库</span>
+          <h2>{{ item.title }}</h2><p>{{ item.coverage_label }}</p>
+          <span class="library-details">{{ item.point_count }} 个知识点 · 按原文目录阅读</span>
+          <span class="library-action">进入知识库 <span aria-hidden="true">→</span></span>
+        </RouterLink>
+      </nav>
+      <p v-if="books.length" class="library-note">每本资料分别保存阅读位置、收藏与掌握程度。</p>
+    </template>
     <template v-else>
       <div class="book-strip"><div><h2>{{ book.title }}</h2><p>{{ book.coverage_label }} · {{ book.point_count }} 个知识点</p></div><button class="small-button mobile-contents" @click="directory?.showModal()">章节目录</button></div>
       <nav class="review-tabs" aria-label="复习内容"><RouterLink :to="{ path: '/review', query: { book: book.id } }" :aria-current="!listFilter ? 'page' : undefined">全部章节</RouterLink><RouterLink :to="{ path: '/review', query: { book: book.id, list: 'bookmarked' } }" :aria-current="listFilter === 'bookmarked' ? 'page' : undefined">我的收藏</RouterLink><RouterLink :to="{ path: '/review', query: { book: book.id, list: 'needs_review' } }" :aria-current="listFilter === 'needs_review' ? 'page' : undefined">待复习</RouterLink></nav>
@@ -223,6 +254,19 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.library-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.library-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; white-space: normal; padding: clamp(24px, 4vw, 42px); border: 1px solid #d7e0d0; border-radius: 20px; background: #f3f5e9; color: #284d3c; text-decoration: none; overflow-wrap: anywhere; transition: border-color .2s, box-shadow .2s; }
+.library-card:nth-child(even) { background: #fbf1e6; border-color: #e8d9c7; color: #735032; }
+.library-card:hover { border-color: #8eab7c; box-shadow: 0 8px 24px #284d3c0b; }
+.library-card:focus-visible { outline: 3px solid #62894d; outline-offset: 4px; }
+.library-icon { font-size: 42px; line-height: 1; margin-bottom: 24px; }
+.library-type { font-size: 12px; letter-spacing: 2px; opacity: .75; }
+.library-card h2 { font-size: clamp(22px, 3vw, 30px); margin: 14px 0; line-height: 1.5; }
+.library-card p { margin: 0 0 16px; line-height: 1.8; font-size: 14px; }
+.library-details { font-size: 13px; opacity: .75; line-height: 1.8; margin-bottom: 28px; }
+.library-action { display: flex; justify-content: space-between; gap: 16px; width: 100%; padding-top: 20px; border-top: 1px solid #526c4826; margin-top: auto; font-weight: 600; }
+.library-note { font-size: 13px; color: #67725f; text-align: center; margin-top: 26px; line-height: 1.8; }
+@media (max-width: 600px) { .library-grid { grid-template-columns: 1fr; gap: 16px; }.review-intro { flex-wrap: wrap; } }
 .review-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; }
 .review-tabs a { color: #516b48; text-decoration: none; padding: 10px 18px; border-radius: 10px; border: 1px solid #d4dfca; font-size: 14px; }
 .review-tabs a[aria-current] { color: #fff; background: #285342; border-color: #285342; }

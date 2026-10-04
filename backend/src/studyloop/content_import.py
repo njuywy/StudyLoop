@@ -152,7 +152,7 @@ def join_wrapped_lines(blocks):
     return result
 
 
-def build_bundle(source, output, start_page, end_page, title):
+def build_bundle(source, output, start_page, end_page, title, *, stop_before=None, margin_top=65):
     source, output = Path(source), Path(output)
     if output.exists():
         raise ValueError("Output must be a new private directory")
@@ -161,12 +161,27 @@ def build_bundle(source, output, start_page, end_page, title):
         version = fingerprint(source.read_bytes())
         book_id = version[:32]
         with pymupdf.open(source) as pdf:
-            if pdf.is_encrypted or not 1 <= start_page <= end_page <= len(pdf):
+            if (
+                pdf.is_encrypted
+                or not 1 <= start_page <= end_page <= len(pdf)
+                or not 0 <= margin_top <= 100
+            ):
                 raise ValueError("Invalid source or page range")
             entries = [e for e in pdf.get_toc(False) if start_page <= e[2] <= end_page]
             if not entries:
                 raise ValueError("No chapter bookmarks in selected pages")
             lines_by_page = {n: page_lines(pdf[n - 1]) for n in range(start_page, end_page + 1)}
+            boundary = None
+            if stop_before:
+                matches = [i for i, e in enumerate(entries) if e[1] == stop_before]
+                if len(matches) != 1 or matches[0] == 0:
+                    raise ValueError("Stop heading must uniquely follow selected content")
+                index = matches[0]
+                entry = entries[index]
+                y, _ = locate_heading(entry, lines_by_page[entry[2]])
+                boundary = (entry[2], y)
+                entries = entries[:index]
+                lines_by_page = {n: lines for n, lines in lines_by_page.items() if n <= entry[2]}
             nodes, heading_lines, stack = [], {}, []
             for entry in entries:
                 level, heading, number = entry[:3]
@@ -207,6 +222,10 @@ def build_bundle(source, output, start_page, end_page, title):
                 page = pdf[number - 1]
                 pages[str(number)] = raster(page, page.rect, output)[0]
                 regions = figure_regions(page)
+                if boundary and number == boundary[0]:
+                    if any(r.y0 < boundary[1] < r.y1 for r in regions):
+                        raise ValueError("A figure crosses the selected chapter boundary")
+                    regions = [r for r in regions if r.y0 < boundary[1]]
                 pieces = []
                 for i, line in enumerate(lines):
                     rect = pymupdf.Rect(line["bbox"])
@@ -214,13 +233,15 @@ def build_bundle(source, output, start_page, end_page, title):
                         r.intersects(rect) and r.contains(rect.tl + (2, 2)) for r in regions
                     )
                     reason = "paragraph"
-                    if i in heading_lines.get(number, set()):
+                    if boundary and (number, rect.y0) >= boundary:
+                        reason = "outside-selection"
+                    elif i in heading_lines.get(number, set()):
                         reason = "heading"
                     elif in_figure:
                         reason = "figure"
                     elif line["dir"][0] < 0.99:
                         reason = "rotated-watermark"
-                    elif rect.y0 < 65 or rect.y0 > page.rect.height - 70:
+                    elif rect.y0 < margin_top or rect.y0 > page.rect.height - 70:
                         reason = "margin"
                     coverage.append(
                         {
@@ -284,8 +305,14 @@ def build_bundle(source, output, start_page, end_page, title):
                 "point_count": len(documents),
                 "coverage_label": f"已上线原文第 {start_page}–{end_page} 页（部分章节）",
             }
+            if boundary:
+                metadata["coverage_label"] = (
+                    f"已上线原文第 {start_page}–{boundary[0]} 页，"
+                    f"至「{stop_before}」之前（部分章节）"
+                )
             if (
-                len(pdf.get_toc()) > 1
+                not boundary
+                and len(pdf.get_toc()) > 1
                 and start_page == pdf.get_toc()[1][2]
                 and end_page == len(pdf)
                 and len(entries) == len(pdf.get_toc()) - 1
@@ -451,13 +478,21 @@ def main():
     build.add_argument("--start-page", type=int, required=True)
     build.add_argument("--end-page", type=int, required=True)
     build.add_argument("--title", required=True)
+    build.add_argument("--stop-before", help="Stop before this exact bookmark, including mid-page")
+    build.add_argument("--margin-top", type=float, default=65, help="Header cutoff in PDF points")
     for name in ("validate", "publish"):
         commands.add_parser(name).add_argument("directory")
     args = parser.parse_args()
     if args.command == "build":
-        book = build_bundle(args.source, args.output, args.start_page, args.end_page, args.title)[
-            "book"
-        ]
+        book = build_bundle(
+            args.source,
+            args.output,
+            args.start_page,
+            args.end_page,
+            args.title,
+            stop_before=args.stop_before,
+            margin_top=args.margin_top,
+        )["book"]
     elif args.command == "validate":
         book = validate_bundle(args.directory)["book"]
     else:
