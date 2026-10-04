@@ -268,20 +268,74 @@ def validate_bundle(directory):
         raise ValueError("Source fingerprint mismatch")
     if book["id"] != book["version"][:32] or not re.fullmatch(r"[0-9a-f]{64}", book["version"]):
         raise ValueError("Invalid book identity")
+    with pymupdf.open(directory / "source.pdf") as source:
+        page_count = len(source)
+    documents = manifest["points"]
+    pages = manifest["pages"]
+    if (
+        not documents
+        or book["page_count"] != page_count
+        or book["point_count"] != len(documents)
+        or any(not n.isdecimal() or not 1 <= int(n) <= page_count for n in pages)
+    ):
+        raise ValueError("Invalid content coverage")
     ids, blocks, assets = set(), set(), set(manifest["pages"].values())
-    for point in manifest["points"]:
-        if point["id"] in ids or point["book_id"] != book["id"] or not point["blocks"]:
+    for index, point in enumerate(documents):
+        if (
+            point["id"] in ids
+            or not re.fullmatch(r"[0-9a-f]{32}", point["id"])
+            or point["book_id"] != book["id"]
+            or point["version"] != book["version"]
+            or not point["blocks"]
+        ):
             raise ValueError("Invalid/duplicate point")
+        if (
+            not 1 <= point["source_start"] <= point["source_end"] <= page_count
+            or any(
+                str(n) not in pages for n in range(point["source_start"], point["source_end"] + 1)
+            )
+            or point["previous_id"] != (documents[index - 1]["id"] if index else None)
+            or point["next_id"]
+            != (documents[index + 1]["id"] if index + 1 < len(documents) else None)
+        ):
+            raise ValueError("Invalid source range or point navigation")
         ids.add(point["id"])
         for block in point["blocks"]:
-            if block["id"] in blocks:
-                raise ValueError("Duplicate block anchor")
+            if (
+                block["id"] in blocks
+                or not re.fullmatch(r"[0-9a-f]{32}", block["id"])
+                or not point["source_start"] <= block["page"] <= point["source_end"]
+                or block["type"] not in {"paragraph", "figure"}
+            ):
+                raise ValueError("Invalid/duplicate block anchor or source")
             blocks.add(block["id"])
             if block["type"] == "figure":
                 assets.add(block["asset_id"])
+    nodes, mapped = {}, []
     for node in manifest["toc"]:
-        if node["point_id"] and node["point_id"] not in ids:
+        parent = nodes.get(node["parent_id"])
+        if (
+            node["id"] in nodes
+            or not re.fullmatch(r"[0-9a-f]{32}", node["id"])
+            or (node["parent_id"] is not None and not parent)
+            or node["level"] != (parent["level"] + 1 if parent else 1)
+            or str(node["page"]) not in pages
+            or node["path"] != (parent["path"] if parent else []) + [node["title"]]
+        ):
+            raise ValueError("Invalid table of contents hierarchy")
+        nodes[node["id"]] = node
+        if node["point_id"] and (node["point_id"] not in ids or node["point_id"] != node["id"]):
             raise ValueError("Unresolved table of contents")
+        if node["point_id"]:
+            mapped.append(node["point_id"])
+    if mapped != [point["id"] for point in documents]:
+        raise ValueError("Point order disagrees with table of contents")
+    for point in documents:
+        node = nodes[point["id"]]
+        if any(point[key] != node[key] for key in ("title", "path")) or (
+            point["source_start"] != node["page"]
+        ):
+            raise ValueError("Point source disagrees with table of contents")
     for name in assets:
         if not re.fullmatch(r"[0-9a-f]{64}\.jpg", name):
             raise ValueError("Invalid resource reference")

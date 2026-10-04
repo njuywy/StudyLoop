@@ -78,6 +78,29 @@ def test_invalid_bundle_fails_before_storage_or_database(bundle, tmp_path):
     assert not (tmp_path / "private").exists()
 
 
+@pytest.mark.parametrize("broken", ["page", "next", "parent", "block", "order"])
+def test_invalid_structure_cannot_touch_published_storage(bundle, tmp_path, broken):
+    manifest = validate_bundle(bundle)
+    if broken == "page":
+        manifest["points"][0]["source_start"] = 999
+    elif broken == "next":
+        manifest["points"][0]["next_id"] = "missing-point"
+    elif broken == "parent":
+        manifest["toc"][0]["parent_id"] = "missing-parent"
+    elif broken == "block":
+        manifest["points"][0]["blocks"][0]["page"] = 999
+    else:
+        manifest["toc"].reverse()
+    (bundle / "manifest.json").write_text(json.dumps(manifest))
+    private = tmp_path / "private"
+    private.mkdir()
+    (private / "existing-resource").write_bytes(b"preserve me")
+    with pytest.raises(ValueError):
+        publish_bundle(bundle, Settings(review_directory=str(private)))
+    assert list(private.iterdir()) == [private / "existing-resource"]
+    assert (private / "existing-resource").read_bytes() == b"preserve me"
+
+
 @pytest.mark.parametrize(
     "suffix",
     [
@@ -112,6 +135,14 @@ def test_real_import_reimport_persistence_and_revocation(reset_api, bundle, tmp_
         toc = client.get(prefix + f"/books/{book['id']}/toc", headers=headers).json()
         points = [n["point_id"] for n in toc["items"] if n["point_id"]]
         assert len(points) == 3
+        original = (bundle / "manifest.json").read_text()
+        broken = json.loads(original)
+        broken["points"][0]["source_end"] = -1
+        (bundle / "manifest.json").write_text(json.dumps(broken))
+        with pytest.raises(ValueError):
+            publish_bundle(bundle, settings)
+        (bundle / "manifest.json").write_text(original)
+        assert client.get(prefix + f"/books/{book['id']}/toc", headers=headers).json() == toc
         assert (
             client.get(prefix + "/points/" + points[1], headers=headers).json()["source_end"] == 2
         )
