@@ -123,6 +123,8 @@ export async function uploadAvatar(file: File) {
       avatarRevision++
       displayAvatar(result.data)
       avatarError.value = ''
+    } else if (result.status === 0 || result.status >= 500) {
+      avatarError.value = '头像保存结果尚未确认，请重新读取后再试。'
     }
     return result
   } finally {

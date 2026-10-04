@@ -45,8 +45,10 @@ test('avatar displays in both places, survives refresh, failures retain it and l
   const original = await page.getByRole('img', { name: '我的头像' }).first().getAttribute('src')
   fail = true
   await page.getByRole('button', { name: '上传头像', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('请求暂未完成')
+  await expect(page.getByRole('alert').filter({ hasText: '请求暂未完成' })).toBeVisible()
   await expect(page.getByRole('img', { name: '我的头像' }).first()).toHaveAttribute('src', original!)
+  await page.getByRole('button', { name: '重试读取头像' }).click()
+  await expect(page.getByRole('alert').filter({ hasText: '保存结果尚未确认' })).toHaveCount(0)
   fail = false
   await page.getByRole('button', { name: '上传头像', exact: true }).click()
   await expect.poll(() => page.evaluate(() => (window as unknown as { revoked: string[] }).revoked)).toContain(original)
