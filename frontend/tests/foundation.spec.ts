@@ -26,5 +26,5 @@ test('a unavailable API does not stop navigation and can be retried', async ({ p
   await page.getByRole('button', { name: '重试' }).click()
   await expect(page.getByRole('status')).toHaveText('平台连接已就绪')
   await page.getByRole('link', { name: '注册账号' }).click()
-  await expect(page.getByRole('heading', { name: '注册功能准备中' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '注册账号' })).toBeVisible()
 })

@@ -81,3 +81,20 @@ h2 { font-size: 21px; font-weight: 500; margin: 10px 0 0; letter-spacing: -.4px;
   .site-footer { margin: 0 24px; padding: 23px 0; flex-wrap: wrap; gap: 18px; }.site-footer > div:first-child { width: 100%; }.footer-note { margin-left: auto; }.coming-soon { min-height: 500px; padding-top: 70px; }.coming-soon h1 { font-size: 26px; }.coming-soon p { font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+.auth-section { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; padding-top: 76px; padding-bottom: 90px; min-height: 65vh; }
+.auth-intro h1 { font-size: 38px; }
+.auth-intro p { color: #74816f; line-height: 1.9; }
+.auth-card { padding: 32px; background: #fffef9; border: 1px solid #e0e5d8; border-radius: 10px; min-width: 0; }
+.auth-card form { display: flex; flex-direction: column; }
+.auth-card label { font-size: 14px; margin: 14px 0 9px; }
+.auth-card input { width: 100%; padding: 12px; border: 1px solid #bdc8b8; border-radius: 5px; background: white; font: inherit; color: inherit; }
+.auth-card input:focus-visible { outline: 2px solid #789b7b; outline-offset: 2px; }
+.field-help, .optional { font-size: 12px; color: #697664; line-height: 1.8; }
+.form-message { font-size: 14px; padding: 14px; border-radius: 5px; color: #8c392a; background: #fff0ea; line-height: 1.8; overflow-wrap: anywhere; }
+.form-message.success { color: #215342; background: #edf3e7; }
+.form-message.neutral { color: #435d4b; background: #f0f3e9; }
+.auth-card .primary-button { justify-content: center; margin-top: 16px; cursor: pointer; }
+.auth-card .text-link { display: inline-block; margin-top: 22px; }
+.mode-button { display: block; padding: 0; border: 0; background: none; color: #386745; margin-top: 24px; font-size: 13px; cursor: pointer; text-align: left; }
+button:disabled, input:disabled { opacity: .65; cursor: wait; }
+@media (max-width: 700px) { .auth-section { grid-template-columns: 1fr; gap: 22px; padding-top: 35px; padding-bottom: 45px; }.auth-card { padding: 23px; }.auth-intro h1 { font-size: 30px; } }

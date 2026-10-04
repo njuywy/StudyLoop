@@ -53,7 +53,7 @@ sudo install -o root -g weiyu -m 0640 /srv/studyloop/app/backend/.env.example /e
 sudoedit /etc/studyloop/backend.env
 ```
 
-配置 `DATABASE_URL=postgresql://studyloop:<URL编码后的密码>@127.0.0.1:5432/studyloop`，生产 `CORS_ORIGINS=https://njuywy.github.io`；头像目录保留 `/srv/studyloop/data/avatars`。SMTP 项为后续注册切片预留，本切片不发送邮件。不可把配置提交、输出至工单或传入前端构建。
+配置 `DATABASE_URL=postgresql://studyloop:<URL编码后的密码>@127.0.0.1:5432/studyloop`，生产 `CORS_ORIGINS=https://njuywy.github.io`；头像目录保留 `/srv/studyloop/data/avatars`。注册、验证和重发需要下面的 SMTP 配置。不可把配置提交、输出至工单或传入前端构建。
 
 以 `weiyu` 安装后端及执行迁移：
 
@@ -75,6 +75,29 @@ curl --fail http://127.0.0.1:8000/api/v1/health
 ```
 
 健康响应应为 `{"status":"ok","database":"ok"}`；数据库故障为 503、安全 code/message。不要用关闭数据库作为公网隔离的验收方式。
+
+## 邮件服务与注册
+
+在 `/etc/studyloop/backend.env` 私有文件中配置邮件服务。现有配置文件应逐项补充，不能用示例覆盖已有数据库凭据。
+
+| 配置 | 用途与默认值 |
+| --- | --- |
+| `SMTP_HOST`、`SMTP_FROM` | 必填：服务地址、服务商允许的发件邮箱 |
+| `SMTP_PORT`、`SMTP_TLS_MODE` | 默认 587/starttls；隐式 TLS 使用 465/ssl，按服务商要求配置；不允许明文模式 |
+| `SMTP_USERNAME`、`SMTP_PASSWORD` | 需要认证时一起填写；密码通常是 SMTP 专用授权码，不是网页登录密码 |
+| `SMTP_TIMEOUT` | 每次 socket 操作默认 5 秒，允许大于 0 且不超过 10 秒 |
+| `PAGES_URL` | 默认 `https://njuywy.github.io/StudyLoop/`；必须是带末尾 `/` 的 HTTPS 基础地址，无 query/hash |
+| `REGISTER_LIMIT`、`RESEND_LIMIT` | 每客户端 IP、10 分钟窗口分别最多 10/20 次有效格式请求，可设置正整数 |
+
+邮件地址去除首尾空白并统一小写；当前仅接受无需 SMTPUTF8 的邮箱地址。昵称空白默认“学习者”，密码保留空格且按 Unicode 字符计数。账号的邮箱验证、启用和角色独立；注册不授予管理员，也不产生登录会话。密码使用 Argon2id；邮箱令牌只存 SHA-256 摘要，24 小时有效且单次消费。后续登录切片复用 `users.id`，不得重新定义账号身份。
+
+重发请求另有按归一化邮箱的 60 秒冷却，存在和不存在的邮箱都计数；成功注册发信后 60 秒内不会再次投递。入口限流记录保存在 PostgreSQL，进程重启仍生效，过期记录随请求清理。Nginx 覆盖 X-Forwarded-For，Uvicorn 仅信任 loopback 代理，不应扩大受信代理范围。
+
+重发统一返回 202 受理，不能据此判断账号是否存在、已验证或禁用，也不能据此确认邮件已送达。页面以中性提示说明“若未收到或发送失败，请 60 秒后重试”；只对符合条件的待验证账号尝试投递，其他地址不联系 SMTP。发送失败不会删除账号或替换旧有效令牌；重试遵守同样的 60 秒冷却。注册发信失败会明确提示使用重发入口，待验证账号仍保留；重复注册不覆盖已有账号。此取舍由操作者确认，以保护邮箱存在性，包括 SMTP DATA 阶段失败。
+
+升级时先安装 `requirements.lock`，运行 Alembic `upgrade head`，再重启 API。同步更新 Nginx 的 `proxy_read_timeout 120s` 并通过 `nginx -t` 后 reload，以容纳 TLS、认证与投递的多个 socket 操作；前端等待最长 125 秒。不要在生产启用 SMTP debug、记录请求体或完整验证链接。
+
+以受控邮箱在 Pages 注册，实际收件后打开 `#/verify-email?token=…`，点击确认验证，验证成功不会自动登录。故障验收与手机复核以 [Ticket #3](https://github.com/njuywy/StudyLoop/issues/3) 的 TC-07 为准；测试邮件边界及模拟浏览器不能代替生产 TLS/认证和真实收件。
 
 ## 首次 HTTPS 签发
 
