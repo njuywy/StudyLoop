@@ -91,17 +91,24 @@ def test_invalid_configuration_fails_closed(changes):
         Settings(**changes)
 
 
-def test_ineligible_address_checks_transport_without_sending_mail(monkeypatch):
+@pytest.mark.parametrize("mode", ["ssl", "starttls"])
+def test_ineligible_address_checks_transport_without_sending_mail(monkeypatch, mode):
     calls = []
 
     class SMTP:
         def __init__(self, *args, **kwargs):
-            pass
+            self.greeted = False
 
         def starttls(self, **kwargs):
             calls.append("tls")
+            self.greeted = False
+
+        def ehlo_or_helo_if_needed(self):
+            self.greeted = True
+            calls.append("greeting")
 
         def mail(self, sender):
+            assert self.greeted, "The server requires EHLO after TLS before MAIL"
             calls.append("mail")
             return 250, b"ok"
 
@@ -120,9 +127,16 @@ def test_ineligible_address_checks_transport_without_sending_mail(monkeypatch):
             pytest.fail("No message should be sent for an ineligible account")
 
     monkeypatch.setattr(mail.smtplib, "SMTP", SMTP)
+    monkeypatch.setattr(mail.smtplib, "SMTP_SSL", SMTP)
     send_verification(
-        Settings(smtp_host="smtp.example.com", smtp_from="sender@example.com"),
+        Settings(smtp_host="smtp.example.com", smtp_from="sender@example.com", smtp_tls_mode=mode),
         "recipient@example.com",
         None,
     )
-    assert calls == ["tls", "mail", "rcpt", "reset", "close"]
+    assert calls == (["tls"] if mode == "starttls" else []) + [
+        "greeting",
+        "mail",
+        "rcpt",
+        "reset",
+        "close",
+    ]

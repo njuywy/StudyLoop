@@ -32,6 +32,7 @@ def send_verification(settings: Settings, recipient: str, link: str | None) -> N
         if link is None:
             # Same TLS/auth/envelope checks for absent or ineligible accounts, without sending.
             # RSET discards the envelope; no DATA command or email is issued.
+            smtp.ehlo_or_helo_if_needed()
             if smtp.mail(settings.smtp_from)[0] != 250 or smtp.rcpt(recipient)[0] not in {250, 251}:
                 raise MailUnavailable()
             if smtp.rset()[0] != 250:
