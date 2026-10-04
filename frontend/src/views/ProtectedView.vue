@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { loadProfile, profile } from '../session'
 import ProfileEditor from './ProfileEditor.vue'
@@ -7,6 +7,7 @@ import AvatarEditor from './AvatarEditor.vue'
 import UserAvatar from './UserAvatar.vue'
 
 const route = useRoute()
+const isProfile = computed(() => route.matched.some(record => record.path === '/profile'))
 const busy = ref(true)
 const error = ref('')
 let refreshVersion = 0
@@ -29,7 +30,7 @@ watch(() => route.path, refresh, { immediate: true })
 </script>
 
 <template>
-  <section v-if="route.path === '/profile'" class="profile-section section-width">
+  <section v-if="isProfile" class="profile-section section-width">
     <div class="profile-heading"><div><span class="section-kicker">你的学习空间</span><h1>个人中心</h1><p>让这个空间，更像你自己。</p></div><RouterLink class="text-link" to="/review">前往在线复习 <span aria-hidden="true">→</span></RouterLink></div>
     <div v-if="busy" class="profile-state" role="status">正在读取账号信息…</div>
     <div v-else-if="error" class="profile-state"><p role="alert" class="form-message">{{ error }}</p><button class="small-button" @click="refresh">重试</button></div>

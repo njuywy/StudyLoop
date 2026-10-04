@@ -107,8 +107,6 @@ button:disabled, input:disabled { opacity: .65; cursor: wait; }
 @media (max-width: 700px) { .auth-section { grid-template-columns: 1fr; gap: 22px; padding-top: 35px; padding-bottom: 45px; }.auth-card { padding: 23px; }.auth-intro h1 { font-size: 30px; } }
 .user-avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; object-fit: cover; }
 .default-avatar { background: #e9e8df; fill: #838779; }
-.avatar-editor { margin-block: 24px; display: grid; gap: 12px; }
-.avatar-editor .user-avatar { width: 80px; height: 80px; }
 .avatar-editor input { min-width: 0; max-width: 100%; }
 .admin-section { padding-top: 48px; padding-bottom: 64px; }
 .managed-users { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); gap: 20px; }

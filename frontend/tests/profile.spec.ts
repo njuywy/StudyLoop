@@ -154,3 +154,13 @@ test('a nickname save remains pending across navigation before the next save is 
   await expect(page.getByRole('heading', { name: '你好，第二次保存' })).toBeVisible()
   expect(writes).toBe(2)
 })
+
+test('profile route variants keep the account forms available', async ({ page }) => {
+  for (const path of ['/profile/', '/Profile']) {
+    await page.goto(`./#${path}`)
+    await expect(page.getByRole('heading', { name: '个人中心', exact: true })).toBeVisible()
+    await expect(page.getByLabel('昵称', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('选择头像')).toBeVisible()
+    await expect(page.getByLabel('旧密码', { exact: true })).toBeVisible()
+  }
+})
