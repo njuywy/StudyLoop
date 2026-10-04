@@ -51,6 +51,9 @@ async function updatePassword() {
 </script>
 
 <template>
+  <section class="profile-card" aria-labelledby="basic-profile-title">
+    <div class="profile-card-heading"><span class="profile-card-icon" aria-hidden="true">☺</span><div><h2 id="basic-profile-title">基本资料</h2><p>用你喜欢的样子，开启每一次学习。</p></div></div>
+    <slot />
   <form @submit.prevent="updateNickname">
     <label for="profile-nickname">昵称</label>
     <input id="profile-nickname" v-model="nickname" type="text" autocomplete="nickname" required :disabled="nicknamePending">
@@ -58,7 +61,10 @@ async function updatePassword() {
     <p v-if="nicknameMessage" :role="nicknameSaved ? 'status' : 'alert'" class="form-message" :class="{ success: nicknameSaved }">{{ nicknameMessage }}</p>
     <button class="primary-button" type="submit" :disabled="nicknamePending" :aria-busy="nicknamePending">{{ nicknamePending ? '正在保存…' : '保存昵称' }}</button>
   </form>
-  <h2>修改密码</h2>
+  </section>
+  <section class="profile-card" aria-labelledby="account-security-title">
+    <div class="profile-card-heading"><span class="profile-card-icon" aria-hidden="true">◇</span><div><h2 id="account-security-title">账户安全</h2><p>定期更新密码，让账号更安心。</p></div></div>
+  <h3>修改密码</h3>
   <form @submit.prevent="updatePassword">
     <label for="old-password">旧密码</label>
     <input id="old-password" v-model="oldPassword" type="password" autocomplete="current-password" required :disabled="passwordPending">
@@ -68,4 +74,16 @@ async function updatePassword() {
     <p v-if="passwordMessage" role="alert" class="form-message">{{ passwordMessage }}</p>
     <button class="primary-button" type="submit" :disabled="passwordPending" :aria-busy="passwordPending">{{ passwordPending ? '正在更新…' : '修改密码并重新登录' }}</button>
   </form>
+  </section>
 </template>
+
+<style scoped>
+.profile-card { padding: 30px; background: #fffefa; border: 1px solid #dce4d8; border-radius: 18px; min-width: 0; }
+.profile-card-heading { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+.profile-card-icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; background: #edf2e9; color: #315e45; font-size: 25px; }
+.profile-card-heading h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.profile-card-heading p { font-size: 13px; color: #647260; line-height: 1.8; margin: 5px 0 0; }
+.profile-card h3 { font-size: 16px; font-weight: 550; margin: 0; }
+.profile-card .primary-button { align-self: flex-start; }
+@media (max-width: 480px) { .profile-card { padding: 22px; }.profile-card .primary-button { align-self: stretch; }.profile-card-heading { align-items: flex-start; } }
+</style>
