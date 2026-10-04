@@ -40,7 +40,7 @@ watch(token, value => {
       </div>
       <div class="workspace-section-heading"><h2>从这里继续</h2><p>你的账号已就绪，学习空间正在慢慢生长。</p></div>
       <div class="workspace-grid">
-        <RouterLink class="workspace-card review-card" to="/review"><span class="workspace-icon" aria-hidden="true">↺</span><span class="workspace-badge">知识点阅读</span><h3>在线复习</h3><p>沿着章节回顾知识，<br>结合图表与原文，读懂每一个要点。</p><span class="workspace-action">进入复习页面 <span aria-hidden="true">→</span></span></RouterLink>
+        <RouterLink class="workspace-card review-card" to="/review"><span class="workspace-icon" aria-hidden="true">↺</span><span class="workspace-badge">知识点阅读</span><h3>在线复习</h3><p>沿着章节回顾知识，<br>结合图表与原文，读懂每一个要点。</p><span class="workspace-action">选择复习资料 <span aria-hidden="true">→</span></span></RouterLink>
         <RouterLink class="workspace-card" to="/profile"><span class="workspace-icon" aria-hidden="true">☺</span><h3>个人中心</h3><p>换一张头像，更新你的昵称，<br>也照顾好账号的安全。</p><span class="workspace-action">维护个人资料 <span aria-hidden="true">→</span></span></RouterLink>
         <RouterLink v-if="profile.role === 'admin'" class="workspace-card" to="/admin/users"><span class="workspace-icon" aria-hidden="true">☷</span><span class="workspace-badge">管理员</span><h3>用户管理</h3><p>查看平台用户，<br>管理账号的启用状态。</p><span class="workspace-action">管理用户 <span aria-hidden="true">→</span></span></RouterLink>
       </div>
@@ -57,7 +57,7 @@ watch(token, value => {
         <RouterLink class="primary-button" to="/review">探索在线复习 <span aria-hidden="true">→</span></RouterLink>
         <RouterLink class="text-link" to="/register">认识你的学习空间 <span aria-hidden="true">↗</span></RouterLink>
       </div>
-      <div class="launch-note"><span class="note-dot"></span>邮箱注册与登录已开放 · 复习功能建设中</div>
+      <div class="launch-note"><span class="note-dot"></span>邮箱注册与登录已开放 · 知识点复习已开放</div>
     </div>
     <div class="study-visual" aria-hidden="true">
       <div class="visual-orbit orbit-one"></div><div class="visual-orbit orbit-two"></div>

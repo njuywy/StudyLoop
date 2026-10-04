@@ -254,6 +254,25 @@ sudo systemctl restart studyloop-api
 
 浏览器目录支持不区分英文字母大小写的标题搜索，结果显示上级路径；纯目录结果展开对应分支，有正文的结果进入知识点。搜索不包括全文，也不改变资料顺序或用户状态。全书覆盖自动校验与人工图文核对分别记录在 Ticket #27，不把自动映射成功视为语义校对完成。
 
+### 多资料选择与红宝书导入
+
+`#/review` 进入知识库选择页，展示认证列表中实际发布的资料；选择后继续使用 `book`、`point`、`list` 查询参数。阅读页可返回选择页，两书各自保留位置和私人列表。旧的无 `book` 知识点链接按知识点真实所属资料补齐 URL；旧的无 `book` 列表链接固定解析为案例库，不依赖资料列表顺序。指定资料不存在或与知识点不匹配时不自动换书。
+
+《红宝书一本全》源 SHA-256 为 `53690650542c40c55974bfca1ce256f9a1e69b4f55f9056fdd3f3b75da194130`，232 页；封面和第 2～7 页印刷目录不生成正文。首批包含第 8 页起的附属内容及完整第 1 章，共 36 个目录/正文入口，正文延续到第 35 页的第 2 章标题之前。构建命令：
+
+```bash
+PYTHONPATH=backend/src uv run --project backend python -m studyloop.content_import build \
+  docs/红宝书一本全.pdf /tmp/studyloop-private-redbook-chapter1 \
+  --start-page 8 --end-page 35 --title 红宝书 --margin-top 55 \
+  --stop-before '2.需求工程（超级重点★★★★★）'
+PYTHONPATH=backend/src uv run --project backend python -m studyloop.content_import validate \
+  /tmp/studyloop-private-redbook-chapter1
+```
+
+`--stop-before` 匹配范围内唯一的完整书签标题，精确截到该标题之前；同页未上线内容在 coverage 中标为 `outside-selection`，跨越边界的局部图会使构建失败，避免误裁。原页对照和完整源 PDF 保留实际原貌，知识点覆盖标签明确为部分章节。红宝书正文比案例资料更靠近页顶，`--margin-top 55` 只排除真实页眉；默认仍为案例库的 65 个 PDF 点，不能直接套用导致丢掉正文首行。导入前核对 coverage 的页眉排除项和图文归属。
+
+发布复用上文的私有上传、`publish`、备份与重启步骤。两书分别按源文件 ID 存放，同一版本重复导入不更换私人记录引用；追加全书前保存首批 manifest 基线，并核对已发布正文块 ID/内容保持。不要重新导入或清空案例库来增加第二份资料。源 PDF 和 Zone.Identifier 均忽略，不加入 Git/Pages。首批质量与真实设备验证见 Ticket #35，完整红宝书范围由 Ticket #36 交付。
+
 
 阅读位置由迁移 `0006_reading_position` 增加的 `review_positions` 与 `review_position_operations` 保存，随 PostgreSQL 一起备份和恢复；重复操作的请求/响应与位置在同一事务提交，不单独清除去重记录。保存仅使用会话身份、有效正文锚点、内容版本、服务器记录版本及 UUID 操作标识，不使用客户端时间决定覆盖。账号和有效会话锁持有到提交，撤销先完成时写入被拒绝。
 

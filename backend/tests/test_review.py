@@ -69,6 +69,121 @@ def test_pdf_headings_figures_cross_page_and_stable_ids(bundle, tmp_path):
     assert {row["kind"] for row in coverage} >= {"heading", "paragraph", "figure"}
 
 
+def test_mid_page_chapter_boundary_preserves_tail_and_stable_partial_content(tmp_path):
+    source = tmp_path / "chapters.pdf"
+    with pymupdf.open() as pdf:
+        for heading in ["Cover", "Contents"]:
+            pdf.new_page().insert_text((75, 90), heading)
+        first = pdf.new_page()
+        first.insert_text((75, 90), "First chapter")
+        first.insert_text((75, 130), "Parent introduction")
+        first.insert_text((75, 200), "First section")
+        first.insert_text((75, 240), "Continues to next page")
+        last = pdf.new_page()
+        last.insert_text((75, 75), "Tail belongs to the first chapter")
+        last.insert_text((75, 300), "Second chapter")
+        last.insert_text((75, 340), "Only in the second chapter")
+        pdf.set_toc(
+            [
+                [1, "Cover", 1, 75],
+                [1, "Contents", 2, 75],
+                [1, "First chapter", 3, 75],
+                [2, "First section", 3, 185],
+                [1, "Second chapter", 4, 285],
+            ]
+        )
+        pdf.save(source)
+    partial = build_bundle(
+        source, tmp_path / "partial", 3, 4, "Book", stop_before="Second chapter", margin_top=55
+    )
+    full = build_bundle(source, tmp_path / "full", 3, 4, "Book", margin_top=55)
+    assert len(partial["points"]) == 2
+    assert partial["points"][-1]["source_end"] == 4
+    assert partial["points"][-1]["blocks"][-1]["text"] == "Tail belongs to the first chapter"
+    assert "部分章节" in partial["book"]["coverage_label"]
+    for old, new in zip(partial["points"], full["points"], strict=False):
+        assert old["id"] == new["id"] and old["blocks"] == new["blocks"]
+    assert validate_bundle(tmp_path / "partial") == partial
+    coverage = json.loads((tmp_path / "partial" / "coverage.json").read_text())
+    assert any(row["kind"] == "outside-selection" for row in coverage)
+    with pytest.raises(ValueError, match="uniquely"):
+        build_bundle(source, tmp_path / "bad", 3, 4, "Book", stop_before="Missing")
+    assert not (tmp_path / "bad").exists()
+
+
+@pytest.mark.postgres
+def test_second_book_import_does_not_reset_existing_content_or_private_records(
+    reset_api, bundle, tmp_path
+):
+    client, app, settings, _, _, email, _, _ = reset_api
+    settings = replace(settings, review_directory=str(tmp_path / "private"))
+    app.state.settings = settings
+    original = validate_bundle(bundle)
+    other_source = tmp_path / "other.pdf"
+    with pymupdf.open(bundle / "source.pdf") as pdf:
+        pdf.set_metadata({"title": "Independent material"})
+        pdf.save(other_source)
+    other = build_bundle(other_source, tmp_path / "other", 1, 2, "Other material")
+    publish_bundle(bundle, settings)
+    headers = {"Authorization": "Bearer " + login(client, email).json()["token"]}
+    try:
+        point = original["points"][0]
+        from uuid import uuid4
+
+        state_path = f"/api/v1/me/review/points/{point['id']}/state"
+        state = client.patch(
+            state_path,
+            headers=headers,
+            json={
+                "bookmarked": True,
+                "mastery": "needs_review",
+                "expected_revision": 0,
+                "operation_id": str(uuid4()),
+            },
+        )
+        assert state.status_code == 200
+        location_path = f"/api/v1/me/review/books/{original['book']['id']}/position"
+        location = client.put(
+            location_path,
+            headers=headers,
+            json={
+                "point_id": point["id"],
+                "block_id": point["blocks"][0]["id"],
+                "offset": 0.3,
+                "content_version": original["book"]["version"],
+                "expected_revision": 0,
+                "operation_id": str(uuid4()),
+            },
+        )
+        assert location.status_code == 200
+        for _ in range(2):
+            publish_bundle(tmp_path / "other", settings)
+        assert client.get(state_path, headers=headers).json() == state.json()
+        assert client.get(location_path, headers=headers).json() == location.json()
+        assert client.get(f"/api/v1/review/points/{point['id']}", headers=headers).json() == point
+        empty = client.get(
+            f"/api/v1/me/review/books/{other['book']['id']}/points?filter=bookmarked",
+            headers=headers,
+        )
+        assert empty.json()["total"] == 0
+        assert (
+            client.get(
+                f"/api/v1/me/review/books/{other['book']['id']}/position", headers=headers
+            ).json()["position"]
+            is None
+        )
+    finally:
+        with connect(settings) as connection:
+            connection.execute(
+                "DELETE FROM review_points WHERE book_id IN (%s,%s)",
+                (original["book"]["id"], other["book"]["id"]),
+            )
+            connection.execute(
+                "DELETE FROM review_books WHERE id IN (%s,%s)",
+                (original["book"]["id"], other["book"]["id"]),
+            )
+
+
 def test_invalid_bundle_fails_before_storage_or_database(bundle, tmp_path):
     manifest = validate_bundle(bundle)
     name = next(iter(manifest["pages"].values()))

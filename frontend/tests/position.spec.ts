@@ -41,6 +41,11 @@ async function setup(page: Page, options: { initial?: Position | null; getFail?:
 }
 async function scrollTo(page: Page, id: string) {
   await expect(page.locator(`#block-${id}`)).toBeAttached()
+  await page.evaluate(async () => {
+    await document.fonts.ready
+    // Restoration settles after layout; scroll only once that user-visible move is finished.
+    for (let i = 0; i < 3; i++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+  })
   await page.evaluate(id => { const e = document.getElementById(`block-${id}`)!; window.scrollTo(0, scrollY + e.getBoundingClientRect().top + e.clientHeight * 0.4 - 80) }, id)
 }
 async function assertRestored(page: Page, target: Position) {
@@ -54,12 +59,12 @@ test('saves reading position, restores after reopening and respects explicit poi
   await scrollTo(page, 'p1-b12')
   await expect.poll(() => server.value?.block_id).toBe('p1-b12')
   const saved = { ...server.value! }
-  await page.goto('./#/review')
+  await page.goto('./#/review?book=book')
   await page.getByRole('button', { name: '继续上次阅读' }).click()
   await assertRestored(page, saved)
   const context = await browser.newContext({ viewport: { width: info.project.name === 'mobile' ? 1280 : 390, height: 900 } })
   const second = await context.newPage(); await setup(second, { initial: saved, slowImage: true })
-  await second.goto(page.url().split('#')[0] + '#/review')
+  await second.goto(page.url().split('#')[0] + '#/review?book=book')
   await second.getByRole('button', { name: '继续上次阅读' }).click()
   await assertRestored(second, saved)
   await expect(second.getByRole('img', { name: '延迟图表' })).toBeAttached()
@@ -120,7 +125,7 @@ test('offline draft survives reopening and reconnects only after verified identi
   await page.evaluate(() => { window.location.hash = '/' })
   await expect(page.getByRole('heading', { name: '知识点1', exact: true })).toHaveCount(0)
   await page.context().setOffline(false)
-  await page.goto('./#/review')
+  await page.goto('./#/review?book=book')
   await expect.poll(() => server.writes.length).toBeGreaterThan(count)
   await expect.poll(() => server.value?.block_id).toBe('p1-b9')
   await page.getByRole('button', { name: '继续上次阅读' }).click()
@@ -130,11 +135,11 @@ test('offline draft survives reopening and reconnects only after verified identi
 test('unavailable storage is visible and invalid historic anchors never write their fallback', async ({ page }) => {
   const server = await setup(page, { initial: location('p1', 'missing') })
   await page.addInitScript(() => { const original = Storage.prototype.setItem; Storage.prototype.setItem = function(k, v) { if (k.startsWith('studyloop_position:')) throw new Error('blocked'); original.call(this, k, v) } })
-  await page.goto('./#/review')
+  await page.goto('./#/review?book=book')
   await page.getByRole('button', { name: '继续上次阅读' }).click()
   await expect(page.getByText('原来的段落位置已失效，已返回该知识点开头。')).toBeVisible()
   await page.waitForTimeout(1200); expect(server.writes).toHaveLength(0)
-  await page.goto('./#/review')
+  await page.goto('./#/review?book=book')
   await page.waitForTimeout(1100); expect(server.writes).toHaveLength(0)
   await page.getByRole('button', { name: '继续上次阅读' }).click()
   await expect(page.getByText('原来的段落位置已失效，已返回该知识点开头。')).toBeVisible()
@@ -145,7 +150,7 @@ test('unavailable storage is visible and invalid historic anchors never write th
 
 test('unavailable knowledge point returns to directory instead of an unrelated point', async ({ page }) => {
   const server = await setup(page, { initial: location('missing') })
-  await page.goto('./#/review')
+  await page.goto('./#/review?book=book')
   await page.getByRole('button', { name: '继续上次阅读' }).click()
   await expect(page.getByText('上次知识点暂不可用，请从目录重新选择。')).toBeVisible()
   await expect(page.getByRole('heading', { name: '从一个知识点开始' })).toBeVisible()
@@ -165,7 +170,7 @@ test('late account A save cannot restore private state in account B, and A draft
   await page.getByLabel('邮箱', { exact: true }).fill('B@example.com')
   await page.getByLabel('密码', { exact: true }).fill('example password')
   await page.getByRole('button', { name: '登录', exact: true }).click()
-  await page.goto('./#/review')
+  await page.goto('./#/review?book=book')
   await expect(page.getByText('尚无阅读记录', { exact: true })).toBeVisible()
   release(); await page.waitForTimeout(200)
   await expect(page.getByRole('button', { name: '继续上次阅读' })).toHaveCount(0)
@@ -192,7 +197,7 @@ for (const changed of [false, true]) test(`old successful replay cannot replace 
   const operation = { point_id: old.point_id, block_id: old.block_id, offset: old.offset, content_version: old.content_version, expected_revision: 0, operation_id: '12345678-1234-4234-8234-123456789012' }
   await page.addInitScript(({ operation, changed }) => localStorage.setItem('studyloop_position:A:book:v1', JSON.stringify({ candidate: { ...operation, block_id: changed ? 'p1-b8' : operation.block_id }, baseRevision: 0, operation })), { operation, changed })
   server.handler = r => r.fulfill({ json: { position: old } })
-  await page.goto('./#/review')
+  await page.goto('./#/review?book=book')
   await expect.poll(() => server.writes.length).toBe(1)
   if (changed) {
     await expect(page.getByText('阅读位置有冲突，请选择')).toBeVisible()

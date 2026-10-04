@@ -1,6 +1,6 @@
 # StudyLoop
 
-通用 AI 在线复习平台。已提供中文首页、邮箱注册/验证/重发、登录与退出、邮箱找回密码、昵称、密码与私有头像维护、复习占位页、管理员用户管理、平台连接状态和 HTTPS API；AI 复习由后续切片实现。
+通用 AI 在线复习平台。已提供中文首页、邮箱注册/验证/重发、登录与退出、邮箱找回密码、昵称、密码与私有头像维护、知识库选择、知识点阅读与个人复习管理、管理员用户管理、平台连接状态和 HTTPS API；AI 复习由后续切片实现。
 
 前端目标：<https://njuywy.github.io/StudyLoop/>。后端目标：`https://124.220.147.193/api/v1`。这些是部署目标，仓库有代码不代表线上已部署或验收通过。
 
@@ -59,3 +59,5 @@ GitHub Actions 的 `frontend`、`backend` 检查运行于 PR 和 `main` 推送�
 范围与验收依据：[Spec #1](https://github.com/njuywy/StudyLoop/issues/1)、[Ticket #2](https://github.com/njuywy/StudyLoop/issues/2)、[Ticket #3](https://github.com/njuywy/StudyLoop/issues/3)、[Ticket #4](https://github.com/njuywy/StudyLoop/issues/4)。测试执行状态和人工验收结果保留在 Ticket 正文，不在仓库维护重复报告。
 
 邮箱找回与密码重置的验收依据为 [Ticket #5](https://github.com/njuywy/StudyLoop/issues/5)，邮件和会话撤销规则见[运行指南](docs/operations.md#密码重置与凭据撤销)。
+
+双知识库入口与红宝书的范围见 [Spec #34](https://github.com/njuywy/StudyLoop/issues/34)，内容构建、私有发布及旧链接兼容见[运行指南](docs/operations.md#多资料选择与红宝书导入)。
