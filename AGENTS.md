@@ -7,3 +7,4 @@
 - PostgreSQL 集成测试仅连接操作者提供的已有隔离 `TEST_DATABASE_URL`，会迁移并创建/清理验证数据，不得使用生产数据库；缺少连接时跳过，不表示已验证数据库。
 - 前端检查：`npm run build --prefix frontend`、`npm run test:e2e --prefix frontend`；后端检查：`uv run --project backend ruff check backend`、`uv run --project backend ruff format --check backend`、`uv run --project backend pytest backend/tests -q`。
 - 需求和验收使用 GitHub Issues；父 Spec #1，各 Ticket 保留其权威测试用例与人工验收状态。
+- 本项目的自动选取 Ticket 与合并授权见[交付授权](docs/agents/delivery-policy.md)，实施前一并读取。
