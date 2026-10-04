@@ -91,52 +91,24 @@ def test_invalid_configuration_fails_closed(changes):
         Settings(**changes)
 
 
-@pytest.mark.parametrize("mode", ["ssl", "starttls"])
-def test_ineligible_address_checks_transport_without_sending_mail(monkeypatch, mode):
-    calls = []
-
+def test_smtp_data_failure_is_a_safe_transport_error(monkeypatch):
     class SMTP:
         def __init__(self, *args, **kwargs):
-            self.greeted = False
-
-        def starttls(self, **kwargs):
-            calls.append("tls")
-            self.greeted = False
-
-        def ehlo_or_helo_if_needed(self):
-            self.greeted = True
-            calls.append("greeting")
-
-        def mail(self, sender):
-            assert self.greeted, "The server requires EHLO after TLS before MAIL"
-            calls.append("mail")
-            return 250, b"ok"
-
-        def rcpt(self, recipient):
-            calls.append("rcpt")
-            return 250, b"ok"
-
-        def rset(self):
-            calls.append("reset")
-            return 250, b"ok"
-
-        def close(self):
-            calls.append("close")
+            pass
 
         def send_message(self, message):
-            pytest.fail("No message should be sent for an ineligible account")
+            raise smtplib.SMTPDataError(451, b"internal mail detail")
 
-    monkeypatch.setattr(mail.smtplib, "SMTP", SMTP)
+        def close(self):
+            pass
+
     monkeypatch.setattr(mail.smtplib, "SMTP_SSL", SMTP)
-    send_verification(
-        Settings(smtp_host="smtp.example.com", smtp_from="sender@example.com", smtp_tls_mode=mode),
-        "recipient@example.com",
-        None,
-    )
-    assert calls == (["tls"] if mode == "starttls" else []) + [
-        "greeting",
-        "mail",
-        "rcpt",
-        "reset",
-        "close",
-    ]
+    with pytest.raises(MailUnavailable) as caught:
+        send_verification(
+            Settings(
+                smtp_host="smtp.example.com", smtp_from="sender@example.com", smtp_tls_mode="ssl"
+            ),
+            "recipient@example.com",
+            "https://example.com/#/verify-email?token=secret",
+        )
+    assert str(caught.value) == ""

@@ -17,7 +17,7 @@ from studyloop.settings import Settings
 router = APIRouter(prefix="/api/v1/auth")
 password_hasher = PasswordHasher()
 ACCEPTED = (
-    "请求已受理。如账号符合验证条件，将收到邮件；请检查收件箱及垃圾邮件，重发至少间隔 60 秒。"
+    "请求已受理，无法确认邮件是否送达。请检查收件箱及垃圾邮件；若未收到或发送失败，请 60 秒后重试。"
 )
 
 
@@ -160,23 +160,19 @@ def resend(body: EmailInput, request: Request):
         user = connection.execute(
             "SELECT * FROM users WHERE email = %s FOR UPDATE", (body.email,)
         ).fetchone()
-        try:
-            sent_at = user["verification_sent_at"] if user else None
-            if (
-                user
-                and not user["email_verified"]
-                and user["enabled"]
-                and (sent_at is None or now() - sent_at >= timedelta(seconds=60))
-            ):
+        sent_at = user["verification_sent_at"] if user else None
+        if (
+            user
+            and not user["email_verified"]
+            and user["enabled"]
+            and (sent_at is None or now() - sent_at >= timedelta(seconds=60))
+        ):
+            try:
                 deliver(connection, user, settings, request.app.state.send_verification)
-            else:
-                request.app.state.send_verification(settings, body.email, None)
-        except MailUnavailable:
-            raise AuthError(
-                503,
-                "MAIL_SERVICE_UNAVAILABLE",
-                "邮件服务暂不可用，请 60 秒后重试。已有有效链接仍可使用。",
-            ) from None
+            except MailUnavailable:
+                # The response is identical for every address, including SMTP DATA failures.
+                # The failed transaction leaves any previous valid token untouched.
+                pass
     return reply("VERIFICATION_REQUEST_ACCEPTED", ACCEPTED, 202)
 
 

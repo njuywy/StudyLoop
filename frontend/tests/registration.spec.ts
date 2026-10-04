@@ -28,16 +28,13 @@ test('registration preserves passwords, prevents double submit and offers retry 
   await expect(page.getByText('untrusted internal mail secret')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '重发验证邮件' })).toBeVisible()
   expect(requests).toBe(1)
-  let mailAvailable = false
   await page.route('**/api/v1/auth/resend-verification', route => route.fulfill({
-    status: mailAvailable ? 202 : 503,
-    json: { code: mailAvailable ? 'VERIFICATION_REQUEST_ACCEPTED' : 'MAIL_SERVICE_UNAVAILABLE' },
+    status: 202,
+    json: { code: 'VERIFICATION_REQUEST_ACCEPTED' },
   }))
   await page.getByRole('button', { name: '发送验证邮件', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('邮件服务暂不可用')
-  mailAvailable = true
-  await page.getByRole('button', { name: '发送验证邮件', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: '请求已受理' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: '无法确认邮件是否送达' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: '无法确认邮件是否送达' })).toHaveClass(/neutral/)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   expect(await page.evaluate(() => sessionStorage.length)).toBe(0)
 })

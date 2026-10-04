@@ -187,11 +187,12 @@ def test_resend_success_replaces_old_failure_preserves_old_and_retry(account_api
     clock[0] += timedelta(seconds=60)
     mailbox.fail = True
     failed = client.post("/api/v1/auth/resend-verification", json={"email": email})
-    assert failed.status_code == 503 and failed.json()["code"] == "MAIL_SERVICE_UNAVAILABLE"
+    assert failed.status_code == 202 and failed.json() == accepted.json()
     absent = client.post(
         "/api/v1/auth/resend-verification", json={"email": f"{prefix}-missing@example.com"}
     )
     assert absent.status_code == failed.status_code and absent.json() == failed.json()
+    assert len(mailbox.messages) == 2
     with registration.connect(settings) as connection:
         assert connection.execute(
             "SELECT digest FROM email_tokens WHERE user_id = %s",
