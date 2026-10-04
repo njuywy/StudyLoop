@@ -35,8 +35,8 @@ onBeforeUnmount(() => {
 async function signOut() {
   logoutError.value = ''
   const result = await logout()
-  if (result.ok) await router.push('/login')
-  else logoutError.value = result.message
+  if (result.ok && !('superseded' in result)) await router.push('/login')
+  else if (!result.ok) logoutError.value = result.message
 }
 </script>
 

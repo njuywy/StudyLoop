@@ -1,21 +1,26 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { loadProfile, profile } from '../session'
+import { loadProfile, profile, token } from '../session'
 
 const route = useRoute()
 const router = useRouter()
 const busy = ref(true)
 const error = ref('')
+let refreshVersion = 0
+
+onBeforeUnmount(() => { refreshVersion++ })
 
 async function refresh() {
+  const currentRefresh = ++refreshVersion
   busy.value = true
   error.value = ''
   const result = await loadProfile()
+  if (currentRefresh !== refreshVersion || (!result.ok && result.status === -1)) return
   busy.value = false
   if (!result.ok) {
     if (result.status === 401) {
-      await router.replace({ path: '/login', query: { redirect: route.fullPath, expired: '1' } })
+      if (!token.value) await router.replace({ path: '/login', query: { redirect: route.fullPath, expired: '1' } })
     } else {
       error.value = result.message
     }

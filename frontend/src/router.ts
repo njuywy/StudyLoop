@@ -1,3 +1,4 @@
+import { watch } from 'vue'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import HomeView from './views/HomeView.vue'
 import ComingSoonView from './views/ComingSoonView.vue'
@@ -5,7 +6,7 @@ import RegisterView from './views/RegisterView.vue'
 import VerifyEmailView from './views/VerifyEmailView.vue'
 import LoginView from './views/LoginView.vue'
 import ProtectedView from './views/ProtectedView.vue'
-import { token } from './session'
+import { sessionExpired, token } from './session'
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -23,7 +24,14 @@ const router = createRouter({
 
 router.beforeEach(to => {
   if (to.meta.requiresAuth && !token.value) {
-    return { path: '/login', query: { redirect: to.fullPath } }
+    return { path: '/login', query: { redirect: to.fullPath, ...(sessionExpired.value ? { expired: '1' } : {}) } }
+  }
+})
+
+watch(sessionExpired, expired => {
+  const current = router.currentRoute.value
+  if (expired && current.meta.requiresAuth) {
+    void router.replace({ path: '/login', query: { redirect: current.fullPath, expired: '1' } })
   }
 })
 
