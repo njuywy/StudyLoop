@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { expect, test } from './fixtures'
 
 const api = 'https://124.220.147.193/api/v1'
