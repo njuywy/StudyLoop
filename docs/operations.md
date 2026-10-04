@@ -105,6 +105,14 @@ curl --fail http://127.0.0.1:8000/api/v1/health
 
 `LOGIN_LIMIT` 默认每客户端 IP 在 10 分钟内最多 10 次尝试，与注册/重发共用 PostgreSQL 限流表。登录失败对错误密码、未验证、禁用和不存在账号返回统一的安全提示；限流返回 429。生产数据库不运行用例；由操作者提供已运行的隔离 `TEST_DATABASE_URL` 后执行真实 PostgreSQL 会话测试。登录页面、受保护复习页和个人中心的实际线上手机验收以 [Ticket #4](https://github.com/njuywy/StudyLoop/issues/4) 为准。
 
+## 密码重置与凭据撤销
+
+忘记密码入口为 `#/forgot-password`，邮件指向 `#/reset-password?token=…`。仅已验证且启用账号会收到重置邮件，链接有效期 30 分钟，必须主动提交 12～128 字符的新密码。`PASSWORD_RESET_LIMIT` 默认按客户端 IP 在 10 分钟内限制 10 次申请；所有账号资格和 SMTP 失败均返回同一受理提示，不能据此确认邮箱存在或邮件送达。复用现有 SMTP 配置和 `email_tokens` 表的 `reset_password` 用途，无额外数据库迁移。
+
+成功发送的新链接替代旧链接；SMTP 失败或超时保留旧有效链接。发信替换、重置消费及密码修改必须先取得同一 `users` 行锁，再操作令牌和会话，避免并发恢复旧链接。`passwords.replace_password_and_revoke` 供密码重置与密码修改复用，调用者须在同一事务中持有账号行锁并完成自身资格校验；该函数更新密码摘要、撤销全部会话并消费全部未使用的重置令牌，不自行提交。任何一步失败都由事务回滚。
+
+生产收件与重新登录按 [Ticket #5](https://github.com/njuywy/StudyLoop/issues/5) TC-07 验收。浏览器测试使用模拟 API，真实 PostgreSQL 的锁竞争与回滚用例必须连接操作者提供的已有隔离测试库；不要在生产库运行测试。日志中不得加入完整重置链接、令牌或新密码。
+
 ## 首次 HTTPS 签发
 
 IP 证书需要 Certbot 5.4+ 的 `--ip-address` 与短期 profile。本示例隔离安装最低支持版本；更换版本需确认兼容并记录实际版本，不覆盖系统其他 Certbot 服务。

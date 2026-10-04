@@ -18,6 +18,7 @@ class Settings:
     register_limit: int = 10
     resend_limit: int = 20
     login_limit: int = 10
+    password_reset_limit: int = 10
 
     def __post_init__(self):
         if self.smtp_tls_mode not in {"starttls", "ssl"}:
@@ -28,7 +29,10 @@ class Settings:
             raise ValueError("SMTP_USERNAME and SMTP_PASSWORD must be configured together")
         if any(c in self.smtp_from for c in "\r\n"):
             raise ValueError("Invalid SMTP_FROM")
-        if self.register_limit < 1 or self.resend_limit < 1 or self.login_limit < 1:
+        if (
+            min(self.register_limit, self.resend_limit, self.login_limit, self.password_reset_limit)
+            < 1
+        ):
             raise ValueError("Entry rate limits must be positive")
         parsed = urlsplit(self.pages_url)
         if (
@@ -77,4 +81,5 @@ class Settings:
             register_limit=int(os.environ.get("REGISTER_LIMIT", "10")),
             resend_limit=int(os.environ.get("RESEND_LIMIT", "20")),
             login_limit=int(os.environ.get("LOGIN_LIMIT", "10")),
+            password_reset_limit=int(os.environ.get("PASSWORD_RESET_LIMIT", "10")),
         )

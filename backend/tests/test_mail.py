@@ -3,12 +3,19 @@ import smtplib
 import pytest
 
 from studyloop import mail
-from studyloop.mail import MailUnavailable, send_verification
+from studyloop.mail import MailUnavailable, send_password_reset, send_verification
 from studyloop.settings import Settings
 
 
 @pytest.mark.parametrize("mode", ["ssl", "starttls"])
-def test_smtp_uses_tls_auth_timeout_and_real_message(monkeypatch, mode):
+@pytest.mark.parametrize(
+    "sender,path,duration",
+    [
+        (send_verification, "verify-email", "24 小时"),
+        (send_password_reset, "reset-password", "30 分钟"),
+    ],
+)
+def test_smtp_uses_tls_auth_timeout_and_real_message(monkeypatch, mode, sender, path, duration):
     calls = []
 
     class SMTP:
@@ -37,12 +44,13 @@ def test_smtp_uses_tls_auth_timeout_and_real_message(monkeypatch, mode):
         smtp_password="private",
         smtp_tls_mode=mode,
     )
-    link = "https://njuywy.github.io/StudyLoop/#/verify-email?token=test"
-    send_verification(settings, "recipient@example.com", link)
+    link = f"https://njuywy.github.io/StudyLoop/#/{path}?token=test"
+    sender(settings, "recipient@example.com", link)
     assert calls[0][3]["timeout"] == 5
     assert ("login", "sender", "private") in calls
     message = next(c[1] for c in calls if c[0] == "message")
     assert message["To"] == "recipient@example.com" and link in message.get_content()
+    assert duration in message.get_content()
     assert any(c[0] == "tls" for c in calls) == (mode == "starttls")
     context = (
         calls[0][3]["context"]
@@ -54,7 +62,8 @@ def test_smtp_uses_tls_auth_timeout_and_real_message(monkeypatch, mode):
 
 
 @pytest.mark.parametrize("error", [TimeoutError, smtplib.SMTPAuthenticationError])
-def test_mail_errors_are_redacted(monkeypatch, error):
+@pytest.mark.parametrize("sender", [send_verification, send_password_reset])
+def test_mail_errors_are_redacted(monkeypatch, error, sender):
     def fail(*args, **kwargs):
         if error is TimeoutError:
             raise TimeoutError("private mail details")
@@ -62,7 +71,7 @@ def test_mail_errors_are_redacted(monkeypatch, error):
 
     monkeypatch.setattr(mail.smtplib, "SMTP_SSL", fail)
     with pytest.raises(MailUnavailable) as caught:
-        send_verification(
+        sender(
             Settings(
                 smtp_host="smtp.example.com", smtp_from="sender@example.com", smtp_tls_mode="ssl"
             ),

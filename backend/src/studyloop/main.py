@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from studyloop.database import check_database
-from studyloop.mail import send_verification
+from studyloop.mail import send_password_reset, send_verification
+from studyloop.passwords import router as password_router
 from studyloop.registration import AuthError, reply, router
 from studyloop.sessions import auth_router, me_router
 from studyloop.settings import Settings
@@ -16,9 +17,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application = FastAPI(title="StudyLoop API", version="0.1.0", debug=False)
     application.state.settings = settings
     application.state.send_verification = send_verification
+    application.state.send_password_reset = send_password_reset
     application.include_router(router)
     application.include_router(auth_router)
     application.include_router(me_router)
+    application.include_router(password_router)
 
     @application.exception_handler(AuthError)
     async def auth_error(request: Request, error: AuthError):

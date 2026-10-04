@@ -7,12 +7,15 @@ const authMessages: Record<string, string> = {
   VERIFICATION_REQUEST_ACCEPTED: '请求已受理，无法确认邮件是否送达。请检查收件箱及垃圾邮件；若未收到或发送失败，请 60 秒后重试。',
   EMAIL_VERIFIED: '邮箱验证成功。请前往登录页面登录。',
   INVALID_VERIFICATION_TOKEN: '验证链接无效、已使用或已过期，请重新申请邮件。',
-  RATE_LIMITED: '请求过于频繁，请稍后重试。重发邮件至少间隔 60 秒。',
+  PASSWORD_RESET_REQUEST_ACCEPTED: '请求已受理，无法确认邮件是否送达。若邮箱已验证且账号可用，请检查收件箱和垃圾邮件；重置链接 30 分钟内有效。未收到或发送失败时可稍后重试。',
+  PASSWORD_RESET: '密码已更新，所有旧登录会话已失效。请重新登录。',
+  INVALID_RESET_TOKEN: '重置链接无效、已使用或已过期，请重新申请找回密码。',
+  RATE_LIMITED: '请求过于频繁，请稍后重试。',
   INVALID_INPUT: '请检查邮箱、密码（12～128 个字符）和昵称（最多 30 个字符）。',
   DATABASE_UNAVAILABLE: '平台连接暂不可用，请稍后重试。',
 }
 
-export async function submitAuth(action: 'register' | 'resend-verification' | 'verify-email', body: object) {
+export async function submitAuth(action: 'register' | 'resend-verification' | 'verify-email' | 'request-password-reset' | 'reset-password', body: object) {
   try {
     const response = await fetch(`${apiBase}/auth/${action}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -22,7 +25,9 @@ export async function submitAuth(action: 'register' | 'resend-verification' | 'v
     const code = typeof result === 'object' && result !== null && 'code' in result && typeof result.code === 'string' ? result.code : ''
     return { ok: response.ok, code, message: authMessages[code] || '请求暂未完成，请稍后重试。' }
   } catch {
-    return { ok: false, code: 'NETWORK_ERROR', message: '平台连接暂不可用，请稍后重试。若刚刚注册，请先检查邮箱或尝试重发验证邮件。' }
+    return { ok: false, code: 'NETWORK_ERROR', message: action.includes('password')
+      ? '平台连接暂不可用，请检查网络后重试。若刚申请找回密码，请先检查邮箱。'
+      : '平台连接暂不可用，请稍后重试。若刚刚注册，请先检查邮箱或尝试重发验证邮件。' }
   }
 }
 

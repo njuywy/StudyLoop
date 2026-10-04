@@ -6,6 +6,8 @@ import RegisterView from './views/RegisterView.vue'
 import VerifyEmailView from './views/VerifyEmailView.vue'
 import LoginView from './views/LoginView.vue'
 import ProtectedView from './views/ProtectedView.vue'
+import ForgotPasswordView from './views/ForgotPasswordView.vue'
+import ResetPasswordView from './views/ResetPasswordView.vue'
 import { sessionExpired, token } from './session'
 
 const router = createRouter({
@@ -15,6 +17,8 @@ const router = createRouter({
     { path: '/register', component: RegisterView },
     { path: '/verify-email', component: VerifyEmailView },
     { path: '/login', component: LoginView },
+    { path: '/forgot-password', component: ForgotPasswordView },
+    { path: '/reset-password', component: ResetPasswordView },
     { path: '/profile', component: ProtectedView, meta: { requiresAuth: true } },
     { path: '/review', component: ProtectedView, meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', component: ComingSoonView, meta: { title: '页面暂不可用', label: '返回首页' } },
