@@ -32,9 +32,32 @@ def identity(version, *parts):
     return fingerprint((version + ":" + ":".join(map(str, parts))).encode())[:32]
 
 
+def layout_blocks(page):
+    blocks = page.get_text("dict")["blocks"]
+    if not any(
+        "Math" in span["font"]
+        for block in blocks
+        if block["type"] == 0
+        for line in block["lines"]
+        for span in line["spans"]
+    ):
+        return blocks
+    # Math font metrics can extend into the header or adjacent paragraphs. Use
+    # glyph outlines on these pages; leave previously published ordinary pages
+    # at their original coordinates so their anchors do not change.
+    previous = pymupdf.TOOLS.unset_quad_corrections()
+    try:
+        pymupdf.TOOLS.unset_quad_corrections(True)
+        return page.get_text("dict", flags=pymupdf.TEXTFLAGS_DICT | pymupdf.TEXT_ACCURATE_BBOXES)[
+            "blocks"
+        ]
+    finally:
+        pymupdf.TOOLS.unset_quad_corrections(previous)
+
+
 def page_lines(page):
     result = []
-    for block in page.get_text("dict")["blocks"]:
+    for block in layout_blocks(page):
         if block["type"] != 0:
             continue
         for line in block["lines"]:
@@ -92,25 +115,76 @@ def figure_regions(page):
                     regions.append(rect)
     # Code is positioned with font/coordinates rather than literal indentation in
     # this PDF. Preserve each contiguous code excerpt as a zoomable local image.
-    code_lines = []
-    for block in page.get_text("dict")["blocks"]:
+    code_lines, math_lines = [], []
+    blocks = layout_blocks(page)
+    for block in blocks:
         if block["type"] != 0:
             continue
         for line in block["lines"]:
             if any("Courier" in span["font"] for span in line["spans"]):
                 code_lines.append(pymupdf.Rect(line["bbox"]))
+            if any("Math" in span["font"] for span in line["spans"]):
+                math_lines.append(pymupdf.Rect(line["bbox"]))
+    if math_lines:
+        # On math pages, some fractions use only ordinary fonts. A short bar
+        # with nearby numerator AND denominator distinguishes these from rules
+        # and underlines. Include the adjacent equation text on the same row.
+        lines = [line for b in blocks if b["type"] == 0 for line in b["lines"]]
+        spans = [
+            pymupdf.Rect(s["bbox"]) for line in lines for s in line["spans"] if s["text"].strip()
+        ]
+        for drawing in page.get_drawings():
+            for item in drawing["items"]:
+                if item[0] != "l":
+                    continue
+                a, b = item[1:]
+                if abs(a.y - b.y) > 0.1 or not 3 <= abs(a.x - b.x) <= 150:
+                    continue
+                left, right = sorted((a.x, b.x))
+                aligned = [r for r in spans if left - 2 <= (r.x0 + r.x1) / 2 <= right + 2]
+                above = [r for r in aligned if 0 <= a.y - r.y1 <= 8]
+                below = [r for r in aligned if 0 <= r.y0 - a.y <= 8]
+                if not above or not below:
+                    continue
+                fraction = pymupdf.Rect(left, a.y - 0.01, right, a.y + 0.01)
+                for rect in above + below:
+                    fraction.include_rect(rect)
+                math_lines.append(fraction)
+                for line in lines:
+                    rect = pymupdf.Rect(line["bbox"])
+                    if rect.intersects(fraction + (-12, 0, 12, 0)):
+                        math_lines.append(rect)
     excerpts = []
-    for rect in sorted(code_lines, key=lambda r: r.y0):
-        if excerpts and rect.y0 - excerpts[-1].y1 < 18:
-            excerpts[-1].include_rect(rect)
-        else:
-            excerpts.append(rect)
+    # Fractions, sums and subscripts need their two-dimensional arrangement.
+    # A small vertical gap joins fragments of one formula, not nearby prose.
+    for lines, gap in ((code_lines, 18), (math_lines, 8)):
+        grouped = []
+        for rect in sorted(lines, key=lambda r: r.y0):
+            if grouped and rect.y0 - grouped[-1].y1 < gap:
+                grouped[-1].include_rect(rect)
+            else:
+                grouped.append(rect)
+        excerpts.extend(grouped)
     for rect in excerpts:
         overlapping = [r for r in regions if r.intersects(rect)]
         for existing in overlapping:
             rect.include_rect(existing)
             regions.remove(existing)
         regions.append(rect)
+    # Some table cells have glyphs protruding past the drawn border. A line
+    # assigned to a crop must fit in the image, including that overhang.
+    for block in blocks:
+        if block["type"] != 0:
+            continue
+        for line in block["lines"]:
+            text_rect = pymupdf.Rect(line["bbox"])
+            for rect in regions:
+                if (
+                    rect.intersects(text_rect)
+                    and rect.contains(text_rect.tl + (2, 2))
+                    and not (rect + (-2, -2, 2, 2)).contains(text_rect)
+                ):
+                    rect.include_rect(text_rect)
     regions = [
         r
         for i, r in enumerate(regions)
@@ -310,12 +384,15 @@ def build_bundle(source, output, start_page, end_page, title, *, stop_before=Non
                     f"已上线原文第 {start_page}–{boundary[0]} 页，"
                     f"至「{stop_before}」之前（部分章节）"
                 )
+            body_entries = pdf.get_toc()[1:]
+            if body_entries and body_entries[0][1].strip().lower() in {"目录", "contents"}:
+                body_entries = body_entries[1:]
             if (
                 not boundary
-                and len(pdf.get_toc()) > 1
-                and start_page == pdf.get_toc()[1][2]
+                and body_entries
+                and start_page == body_entries[0][2]
                 and end_page == len(pdf)
-                and len(entries) == len(pdf.get_toc()) - 1
+                and [e[:3] for e in entries] == body_entries
             ):
                 metadata["coverage_label"] = "全书内容已收录"
             manifest = {"book": metadata, "toc": nodes, "points": documents, "pages": pages}
@@ -436,10 +513,18 @@ def publish_bundle(directory, settings):
         # Serialize publication of this book, including concurrent first imports.
         connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (book["id"],))
         existing = connection.execute(
-            "SELECT id FROM review_points WHERE book_id = %s", (book["id"],)
+            "SELECT id, document FROM review_points WHERE book_id = %s", (book["id"],)
         ).fetchall()
-        if {r["id"] for r in existing} - {p["id"] for p in manifest["points"]}:
+        incoming = {point["id"]: point for point in manifest["points"]}
+        if {r["id"] for r in existing} - incoming.keys():
             raise ValueError("Import cannot remove published knowledge points")
+        for row in existing:
+            old = {k: v for k, v in row["document"].items() if k not in {"previous_id", "next_id"}}
+            new = {
+                k: v for k, v in incoming[row["id"]].items() if k not in {"previous_id", "next_id"}
+            }
+            if old != new:
+                raise ValueError("Import cannot change published content or block anchors")
         connection.execute(
             """INSERT INTO review_books (id, metadata, toc, storage_key, pages)
                VALUES (%s,%s,%s,%s,%s) ON CONFLICT (id) DO UPDATE SET

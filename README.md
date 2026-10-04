@@ -60,4 +60,4 @@ GitHub Actions 的 `frontend`、`backend` 检查运行于 PR 和 `main` 推送�
 
 邮箱找回与密码重置的验收依据为 [Ticket #5](https://github.com/njuywy/StudyLoop/issues/5)，邮件和会话撤销规则见[运行指南](docs/operations.md#密码重置与凭据撤销)。
 
-双知识库入口与红宝书的范围见 [Spec #34](https://github.com/njuywy/StudyLoop/issues/34)，内容构建、私有发布及旧链接兼容见[运行指南](docs/operations.md#多资料选择与红宝书导入)。
+当前案例库收录 317 篇知识点，红宝书收录 293 篇知识点；两库独立保存阅读位置、收藏与掌握程度。双知识库入口与红宝书的范围见 [Spec #34](https://github.com/njuywy/StudyLoop/issues/34)，内容构建、私有发布及旧链接兼容见[运行指南](docs/operations.md#多资料选择与红宝书导入)。
