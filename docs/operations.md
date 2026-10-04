@@ -258,3 +258,8 @@ sudo systemctl restart studyloop-api
 阅读位置由迁移 `0006_reading_position` 增加的 `review_positions` 与 `review_position_operations` 保存，随 PostgreSQL 一起备份和恢复；重复操作的请求/响应与位置在同一事务提交，不单独清除去重记录。保存仅使用会话身份、有效正文锚点、内容版本、服务器记录版本及 UUID 操作标识，不使用客户端时间决定覆盖。账号和有效会话锁持有到提交，撤销先完成时写入被拒绝。
 
 浏览器以 `studyloop_position:<已验证用户ID>:<资料ID>:<内容版本>` 为键暂存未同步位置与待确认操作，不包含登录凭据或整本文本。退出会清理内存和停止同步，保留同一账号再次验证后可恢复的本地候选。连续滚动约 5 秒、暂停约 1 秒发起保存；关闭/隐藏只作补充，跨设备可恢复服务器已确认的位置。存储受限、断网、失败或冲突有独立提示；首次读取失败不写默认位置，冲突必须选择后才再次尝试版本检查。原文弹层不参与知识点位置记录。真实设备、数据库并发与恢复验证记录在 Ticket #28。
+
+
+收藏和手动掌握程度使用迁移 `0007_review_states`：`review_states` 每账号/知识点一行，`review_state_operations` 保存同事务的操作去重证据，两表随数据库一起备份。收藏与 `unlearned`（未学习）、`needs_review`（需复习）、`mastered`（已掌握）相互独立，只在用户明确操作时修改。PATCH 只带变更字段、预期版本与操作 UUID；不根据阅读行为推断掌握情况。
+
+`/me/review/books/{book_id}/points` 以 `bookmarked` 或 `needs_review` 过滤，固定每页 20 项，按资料原文序号排序；计数与该页使用同一数据库快照，删除末页最后一项后返回有效页。前端入口为 `#/review?book=资料ID&list=bookmarked` 或 `list=needs_review`，列表进入正文使用显式知识点链接，优先于续读位置。列表与状态只读取当前会话账号，不建立离线状态队列；保存未知先重新读取，版本冲突要求刷新后明确重新操作。真实跨设备与数据库验收记录在 Ticket #29。
