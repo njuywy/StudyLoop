@@ -120,7 +120,7 @@ test('password change finishing after navigation still redirects the revoked ses
   await page.getByRole('button', { name: '修改密码并重新登录' }).click()
   await expect.poll(() => started).toBe(true)
   await page.getByRole('navigation').getByRole('link', { name: '在线复习' }).click()
-  await expect(page.getByText('在线复习功能正在建设中。')).toBeVisible()
+  await expect(page.getByText('资料正在整理')).toBeVisible()
   release?.()
   await expect(page.getByRole('heading', { name: '登录 StudyLoop' })).toBeVisible()
   await expect(page.getByRole('alert')).toContainText('密码已更新')

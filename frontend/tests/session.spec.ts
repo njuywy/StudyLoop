@@ -30,9 +30,9 @@ test('protected deep link returns after login, survives refresh and logout revok
   await page.getByLabel('密码', { exact: true }).fill(' valid password ')
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page).toHaveURL(/\/StudyLoop\/#\/review$/)
-  await expect(page.getByText('在线复习功能正在建设中。')).toBeVisible()
+  await expect(page.getByText('资料正在整理')).toBeVisible()
   await page.reload()
-  await expect(page.getByText('在线复习功能正在建设中。')).toBeVisible()
+  await expect(page.getByText('资料正在整理')).toBeVisible()
   expect(profileReads).toBeGreaterThanOrEqual(2)
   await page.getByRole('navigation').getByRole('link', { name: '个人中心' }).click()
   await expect(page.getByText('邮箱：verified@example.com')).toBeVisible()
@@ -62,10 +62,10 @@ test('server 401 clears the session and a network error offers retry without exp
   await page.route(`${api}/me`, route => available ? route.fulfill({ json: user }) : route.abort())
   await page.goto('./#/review')
   await expect(page.getByRole('alert')).toContainText('网络连接暂不可用')
-  await expect(page.getByText('在线复习功能正在建设中。')).toHaveCount(0)
+  await expect(page.getByText('资料正在整理')).toHaveCount(0)
   available = true
   await page.getByRole('button', { name: '重试' }).click()
-  await expect(page.getByText('在线复习功能正在建设中。')).toBeVisible()
+  await expect(page.getByText('资料正在整理')).toBeVisible()
 })
 
 test('failed logout retains local session so it can be retried', async ({ page }) => {

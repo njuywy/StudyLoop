@@ -5,6 +5,7 @@ export const test = base.extend({
   page: async ({ page }, use) => {
     await page.route('https://124.220.147.193/api/v1/**', route => route.abort())
     await page.route('https://124.220.147.193/api/v1/me/avatar', route => route.fulfill({ status: 404, json: { code: 'NO_AVATAR' } }))
+    await page.route('https://124.220.147.193/api/v1/review/books', route => route.fulfill({ json: { items: [] } }))
     await use(page)
   },
 })

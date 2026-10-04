@@ -40,7 +40,7 @@ watch(token, value => {
       </div>
       <div class="workspace-section-heading"><h2>从这里继续</h2><p>你的账号已就绪，学习空间正在慢慢生长。</p></div>
       <div class="workspace-grid">
-        <RouterLink class="workspace-card review-card" to="/review"><span class="workspace-icon" aria-hidden="true">↺</span><span class="workspace-badge">建设中</span><h3>在线复习</h3><p>让学过的知识，再次变得清晰。<br>复习功能正在建设中，敬请期待。</p><span class="workspace-action">进入复习页面 <span aria-hidden="true">→</span></span></RouterLink>
+        <RouterLink class="workspace-card review-card" to="/review"><span class="workspace-icon" aria-hidden="true">↺</span><span class="workspace-badge">知识点阅读</span><h3>在线复习</h3><p>沿着章节回顾知识，<br>结合图表与原文，读懂每一个要点。</p><span class="workspace-action">进入复习页面 <span aria-hidden="true">→</span></span></RouterLink>
         <RouterLink class="workspace-card" to="/profile"><span class="workspace-icon" aria-hidden="true">☺</span><h3>个人中心</h3><p>换一张头像，更新你的昵称，<br>也照顾好账号的安全。</p><span class="workspace-action">维护个人资料 <span aria-hidden="true">→</span></span></RouterLink>
         <RouterLink v-if="profile.role === 'admin'" class="workspace-card" to="/admin/users"><span class="workspace-icon" aria-hidden="true">☷</span><span class="workspace-badge">管理员</span><h3>用户管理</h3><p>查看平台用户，<br>管理账号的启用状态。</p><span class="workspace-action">管理用户 <span aria-hidden="true">→</span></span></RouterLink>
       </div>
@@ -80,7 +80,7 @@ watch(token, value => {
     <div class="feature-grid">
       <RouterLink class="feature-card" to="/register"><span class="feature-number">01 /</span><h3>拥有自己的账号 <span aria-hidden="true">↗</span></h3><p>邮箱注册并完成验证，<br>从一个属于你的账号开始。</p><span class="feature-tag">开始注册</span></RouterLink>
       <RouterLink class="feature-card" to="/profile"><span class="feature-number">02 /</span><h3>找到自己的节奏 <span aria-hidden="true">↗</span></h3><p>个人中心与资料维护，<br>让学习空间带上你的名字。</p><span class="feature-tag">维护资料</span></RouterLink>
-      <RouterLink class="feature-card" to="/review"><span class="feature-number">03 /</span><h3>与知识再次相遇 <span aria-hidden="true">↗</span></h3><p>在线复习入口已预留，<br>接下来，一起把学习变成习惯。</p><span class="feature-tag">准备中</span></RouterLink>
+      <RouterLink class="feature-card" to="/review"><span class="feature-number">03 /</span><h3>与知识再次相遇 <span aria-hidden="true">↗</span></h3><p>按章节阅读知识点，<br>从一次专注的回顾开始。</p><span class="feature-tag">知识点阅读</span></RouterLink>
     </div>
   </section>
   </template>
