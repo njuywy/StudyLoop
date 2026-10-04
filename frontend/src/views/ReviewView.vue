@@ -6,6 +6,8 @@ import { useReadingPosition, locationAtViewport, scrollToLocation, type ReadingL
 import type { KnowledgePoint, ReviewBook, TocNode } from '../review'
 import ReviewContents from './ReviewContents.vue'
 import ReviewImage from './ReviewImage.vue'
+import ReviewState from './ReviewState.vue'
+import ReviewList from './ReviewList.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +25,7 @@ const sourcePage = ref(0)
 const sourceMode = ref(false)
 const title = ref<HTMLElement>()
 const currentId = computed(() => typeof route.query.point === 'string' ? route.query.point : '')
+const listFilter = computed(() => !currentId.value && (route.query.list === 'bookmarked' || route.query.list === 'needs_review') ? route.query.list : null)
 let revision = 0
 const position = useReadingPosition()
 const { remote, draft, conflict, readError, storageError, saveError, saving, status, continuation } = position
@@ -179,18 +182,21 @@ onBeforeUnmount(() => {
     <div v-else-if="!book" class="reading-state"><h2>资料正在整理</h2><p>暂时没有可阅读的资料，请稍后再来。</p></div>
     <template v-else>
       <div class="book-strip"><div><h2>{{ book.title }}</h2><p>{{ book.coverage_label }} · {{ book.point_count }} 个知识点</p></div><button class="small-button mobile-contents" @click="directory?.showModal()">章节目录</button></div>
+      <nav class="review-tabs" aria-label="复习内容"><RouterLink :to="{ path: '/review', query: { book: book.id } }" :aria-current="!listFilter ? 'page' : undefined">全部章节</RouterLink><RouterLink :to="{ path: '/review', query: { book: book.id, list: 'bookmarked' } }" :aria-current="listFilter === 'bookmarked' ? 'page' : undefined">我的收藏</RouterLink><RouterLink :to="{ path: '/review', query: { book: book.id, list: 'needs_review' } }" :aria-current="listFilter === 'needs_review' ? 'page' : undefined">待复习</RouterLink></nav>
       <div class="position-panel" aria-label="阅读位置">
         <div class="position-actions"><span role="status">{{ status }}</span><button v-if="continuation" class="small-button" @click="continueReading()">继续上次阅读</button><button v-if="readError" class="small-button" @click="position.reload">重试读取位置</button><button v-else-if="saveError && !conflict" class="small-button" :disabled="saving" @click="position.flush">重试保存位置</button></div>
         <p v-if="storageError" role="alert">{{ storageError }}</p><p v-if="positionNotice" role="status">{{ positionNotice }}</p>
         <div v-if="conflict" class="position-conflict" role="alert"><p>其他设备已更新阅读位置。选择前不会覆盖任一记录。</p><p>服务器：{{ nodes.find(n => n.point_id === remote?.point_id)?.title || '暂无记录' }}</p><p>本地：{{ nodes.find(n => n.point_id === draft?.candidate.point_id)?.title || '原知识点暂不可用' }}</p><div class="position-actions"><button class="small-button" :disabled="!!readError" @click="chooseServer">使用服务器位置</button><button class="small-button" :disabled="saving || !!readError" @click="chooseLocal">以本地位置继续并保存</button></div></div>
       </div>
-      <div class="reading-layout">
+      <ReviewList v-if="listFilter" :book-id="book.id" :filter="listFilter" @select="select" />
+      <div v-else class="reading-layout">
         <aside class="desktop-contents" aria-label="章节目录"><h3>章节目录</h3><ReviewContents :nodes="nodes" :current="point?.id" @select="select" /></aside>
         <article class="reading-paper">
           <template v-if="point">
             <p class="reading-path">{{ point.path.slice(0, -1).join(' / ') }}</p>
             <h2 ref="title" tabindex="-1" class="point-title">{{ point.title }}</h2>
             <div class="reading-tools"><span>原文 {{ point.source_start }}<template v-if="point.source_end !== point.source_start">–{{ point.source_end }}</template> 页</span><button class="small-button" @click="showSource(point.source_start)">查看 PDF 原文</button></div>
+            <ReviewState :point-id="point.id" />
             <div class="reading-body">
               <template v-for="block in point.blocks" :key="block.id">
                 <p v-if="block.type === 'paragraph'" :id="`block-${block.id}`" :data-block-id="block.id">{{ block.text }}</p>
@@ -217,6 +223,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.review-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; }
+.review-tabs a { color: #516b48; text-decoration: none; padding: 10px 18px; border-radius: 10px; border: 1px solid #d4dfca; font-size: 14px; }
+.review-tabs a[aria-current] { color: #fff; background: #285342; border-color: #285342; }
 .position-panel { margin: -6px 0 22px; padding: 16px 20px; border: 1px solid #dce4d8; border-radius: 12px; background: #f7f8f0; font-size: 13px; line-height: 1.8; }
 .position-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .position-actions > span { margin-right: auto; }
