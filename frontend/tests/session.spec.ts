@@ -115,6 +115,40 @@ test('an open protected page redirects when its session expires', async ({ page 
   expect(await page.evaluate(() => sessionStorage.getItem('studyloop_session'))).toBeNull()
 })
 
+test('a 401 from the previous protected route redirects the current route', async ({ page }) => {
+  let releaseFirst: (() => void) | undefined
+  let releaseSecond: (() => void) | undefined
+  const first = new Promise<void>(resolve => { releaseFirst = resolve })
+  const second = new Promise<void>(resolve => { releaseSecond = resolve })
+  let reads = 0
+  await page.route(`${api}/me`, async route => {
+    reads++
+    if (reads === 1) {
+      await first
+      await route.fulfill({ status: 401, json: { code: 'UNAUTHORIZED' } })
+    } else {
+      await second
+      await route.fulfill({ json: user })
+    }
+  })
+  await page.goto('./')
+  await page.evaluate(() => {
+    sessionStorage.setItem('studyloop_session', 'browser-secret')
+    sessionStorage.setItem('studyloop_session_expires_at', new Date(Date.now() + 60_000).toISOString())
+  })
+  await page.reload()
+  await page.getByRole('navigation').getByRole('link', { name: '个人中心' }).click()
+  await expect.poll(() => reads).toBe(1)
+  await page.getByRole('navigation').getByRole('link', { name: '在线复习' }).click()
+  await expect.poll(() => reads).toBe(2)
+  releaseFirst?.()
+  await expect(page.getByRole('heading', { name: '登录 StudyLoop' })).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('登录状态已失效')
+  await expect(page).toHaveURL(/redirect=\/review.*expired=1/)
+  releaseSecond?.()
+  expect(await page.evaluate(() => sessionStorage.getItem('studyloop_session'))).toBeNull()
+})
+
 for (const oldStatus of [200, 401]) {
   test(`a delayed account A response (${oldStatus}) cannot affect account B`, async ({ page }) => {
     let releaseA: (() => void) | undefined

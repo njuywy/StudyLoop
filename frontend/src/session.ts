@@ -67,7 +67,7 @@ async function request<T>(path: string, options: RequestInit = {}, useToken = tr
     if (!isCurrentSession()) return stale()
     const data: unknown = await response.json()
     if (!isCurrentSession()) return stale()
-    if (response.status === 401 && useToken) clearSession()
+    if (response.status === 401 && useToken) expireSession()
     if (!response.ok) {
       const code = typeof data === 'object' && data !== null && 'code' in data ? data.code : ''
       return { ok: false, status: response.status, message: code === 'RATE_LIMITED' ? '登录尝试过于频繁，请稍后重试。' : response.status === 401 ? '邮箱或密码错误，或登录状态已失效。' : '请求暂未完成，请稍后重试。' }
