@@ -1,6 +1,6 @@
 # StudyLoop
 
-通用 AI 在线复习平台。首个切片提供中文首页、后续功能入口、平台连接状态和最小 HTTPS API；注册、登录、个人资料、头像及 AI 复习尚未在此切片实现。
+通用 AI 在线复习平台。已提供中文首页、邮箱注册/验证/重发、平台连接状态和 HTTPS API；登录、个人资料、头像及 AI 复习由后续切片实现。
 
 前端目标：<https://njuywy.github.io/StudyLoop/>。后端目标：`https://124.220.147.193/api/v1`。这些是部署目标，仓库有代码不代表线上已部署或验收通过。
 
@@ -14,7 +14,7 @@ uv sync --project backend --frozen
 cp backend/.env.example backend/.env
 ```
 
-将 `backend/.env` 的 `DATABASE_URL` 设置为已有 PostgreSQL 的连接，开发 CORS 来源已列在示例中。两个终端分别运行：
+将 `backend/.env` 的 `DATABASE_URL` 设置为已有 PostgreSQL 的连接，开发 CORS 来源已列在示例中。注册发信还需要配置后端 SMTP（详见[运行指南](docs/operations.md#邮件服务与注册)）；未配置时注册保留待验证账号并返回发送失败。两个终端分别运行：
 
 ```bash
 npm run dev --prefix frontend
@@ -50,10 +50,10 @@ uv run --project backend pytest backend/tests -m postgres -q
 uv run --project backend python -m dotenv -f backend/.env run -- alembic -c backend/alembic.ini upgrade head
 ```
 
-初始迁移只建立 Alembic 历史，用户等业务表由对应后续切片引入。迁移重复运行应保持当前版本，数据与服务生命周期分离。
+`0001_baseline` 建立迁移历史，`0002_registration` 建立账号、邮箱令牌与共享入口限流表。迁移重复运行应保持当前版本，数据与服务生命周期分离。
 
 [服务器运行指南](docs/operations.md) 是部署、HTTPS 续期、配置、持久化与公网隔离核验的权威入口。使用原生 PostgreSQL、systemd 和 Nginx，不依赖 Docker。
 
 GitHub Actions 的 `frontend`、`backend` 检查运行于 PR 和 `main` 推送；`pages` 只在 `main` 的检查成功后发布已检查的前端产物。上线时必须启用仓库 Pages 的 GitHub Actions 来源，并完成服务器端部署。
 
-范围与验收依据：[Spec #1](https://github.com/njuywy/StudyLoop/issues/1)、[Ticket #2](https://github.com/njuywy/StudyLoop/issues/2)。测试执行状态和人工验收结果保留在 Ticket 正文，不在仓库维护重复报告。
+范围与验收依据：[Spec #1](https://github.com/njuywy/StudyLoop/issues/1)、[Ticket #2](https://github.com/njuywy/StudyLoop/issues/2)、[Ticket #3](https://github.com/njuywy/StudyLoop/issues/3)。测试执行状态和人工验收结果保留在 Ticket 正文，不在仓库维护重复报告。

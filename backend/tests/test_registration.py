@@ -30,7 +30,8 @@ class Mailbox:
     def __call__(self, settings, recipient, link):
         if self.fail:
             raise MailUnavailable()
-        self.messages.append((recipient, link))
+        if link is not None:
+            self.messages.append((recipient, link))
 
     def token(self, index=-1):
         return parse_qs(urlsplit(self.messages[index][1]).fragment.split("?", 1)[1])["token"][0]
@@ -186,7 +187,11 @@ def test_resend_success_replaces_old_failure_preserves_old_and_retry(account_api
     clock[0] += timedelta(seconds=60)
     mailbox.fail = True
     failed = client.post("/api/v1/auth/resend-verification", json={"email": email})
-    assert failed.status_code == 202 and failed.json() == accepted.json()
+    assert failed.status_code == 503 and failed.json()["code"] == "MAIL_SERVICE_UNAVAILABLE"
+    absent = client.post(
+        "/api/v1/auth/resend-verification", json={"email": f"{prefix}-missing@example.com"}
+    )
+    assert absent.status_code == failed.status_code and absent.json() == failed.json()
     with registration.connect(settings) as connection:
         assert connection.execute(
             "SELECT digest FROM email_tokens WHERE user_id = %s",

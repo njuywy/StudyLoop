@@ -89,3 +89,40 @@ def test_mail_errors_are_redacted(monkeypatch, error):
 def test_invalid_configuration_fails_closed(changes):
     with pytest.raises(ValueError):
         Settings(**changes)
+
+
+def test_ineligible_address_checks_transport_without_sending_mail(monkeypatch):
+    calls = []
+
+    class SMTP:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def starttls(self, **kwargs):
+            calls.append("tls")
+
+        def mail(self, sender):
+            calls.append("mail")
+            return 250, b"ok"
+
+        def rcpt(self, recipient):
+            calls.append("rcpt")
+            return 250, b"ok"
+
+        def rset(self):
+            calls.append("reset")
+            return 250, b"ok"
+
+        def close(self):
+            calls.append("close")
+
+        def send_message(self, message):
+            pytest.fail("No message should be sent for an ineligible account")
+
+    monkeypatch.setattr(mail.smtplib, "SMTP", SMTP)
+    send_verification(
+        Settings(smtp_host="smtp.example.com", smtp_from="sender@example.com"),
+        "recipient@example.com",
+        None,
+    )
+    assert calls == ["tls", "mail", "rcpt", "reset", "close"]
