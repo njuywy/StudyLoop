@@ -98,6 +98,8 @@ test('a delayed nickname save from A does not overwrite B after account switch',
   await expect(page.getByText('邮箱：b@example.com')).toBeVisible()
   release?.()
   await expect.poll(() => completed).toBe(true)
+  await expect(page.getByRole('heading', { name: '用户B', exact: true })).toBeVisible()
+  await page.getByRole('navigation').getByRole('link', { name: '个人中心' }).click()
   await expect(page.getByRole('heading', { name: '你好，用户B' })).toBeVisible()
   expect(await page.evaluate(() => sessionStorage.getItem('studyloop_session'))).toBe('token-B')
 })

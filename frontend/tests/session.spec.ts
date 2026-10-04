@@ -131,7 +131,7 @@ test('a 401 from the previous protected route redirects the current route', asyn
       await route.fulfill({ json: user })
     }
   })
-  await page.goto('./')
+  await page.goto('./#/login')
   await page.evaluate(() => {
     sessionStorage.setItem('studyloop_session', 'browser-secret')
     sessionStorage.setItem('studyloop_session_expires_at', new Date(Date.now() + 60_000).toISOString())
@@ -229,4 +229,77 @@ test('a delayed logout from account A cannot sign out account B', async ({ page 
   await expect.poll(() => logoutCompleted).toBe(true)
   await expect(page.getByText('邮箱：second@example.com')).toBeVisible()
   expect(await page.evaluate(() => sessionStorage.getItem('studyloop_session'))).toBe('token-B')
+})
+
+for (const role of ['user', 'admin']) {
+  test(`homepage restores ${role} without flashing registration content`, async ({ page }) => {
+    let release: (() => void) | undefined
+    const waiting = new Promise<void>(resolve => { release = resolve })
+    await page.route(`${api}/me`, async route => {
+      await waiting
+      await route.fulfill({ json: { ...user, role } })
+    })
+    await page.goto('./')
+    await expect(page.locator('a[href="#/register"]').first()).toBeVisible()
+    await page.evaluate(() => {
+      sessionStorage.setItem('studyloop_session', 'restored-token')
+      sessionStorage.setItem('studyloop_session_expires_at', new Date(Date.now() + 60_000).toISOString())
+    })
+    await page.reload()
+    await expect(page.getByText('正在读取账号信息…')).toBeVisible()
+    await expect(page.locator('a[href="#/register"]')).toHaveCount(0)
+    await expect(page.locator('a[href="#/admin/users"]')).toHaveCount(0)
+    release?.()
+    await expect(page.getByRole('heading', { name: user.nickname, exact: true })).toBeVisible()
+    await expect(page.locator('a[href="#/admin/users"]')).toHaveCount(role === 'admin' ? 2 : 0)
+    await expect(page.locator('a[href="#/register"]')).toHaveCount(0)
+    await page.reload()
+    await expect(page.getByRole('heading', { name: user.nickname, exact: true })).toBeVisible()
+    await expect(page.locator('a[href="#/admin/users"]')).toHaveCount(role === 'admin' ? 2 : 0)
+  })
+}
+
+test('homepage retries profile and avatar failures, then clears identity on a 401', async ({ page }) => {
+  let available = false
+  let expired = false
+  await page.route(`${api}/me`, route => route.fulfill(expired
+    ? { status: 401, json: { code: 'UNAUTHORIZED' } }
+    : available ? { json: user } : { status: 503, json: { code: 'UNAVAILABLE' } }))
+  await page.route(`${api}/me/avatar`, route => route.abort())
+  await page.goto('./')
+  await page.evaluate(() => {
+    sessionStorage.setItem('studyloop_session', 'restored-token')
+    sessionStorage.setItem('studyloop_session_expires_at', new Date(Date.now() + 60_000).toISOString())
+  })
+  await page.reload()
+  await expect(page.getByRole('button', { name: '重试读取资料' })).toBeVisible()
+  await expect(page.locator('a[href="#/register"]')).toHaveCount(0)
+  expect(await page.evaluate(() => sessionStorage.getItem('studyloop_session'))).toBe('restored-token')
+  available = true
+  await page.getByRole('button', { name: '重试读取资料' }).click()
+  await expect(page.getByRole('heading', { name: user.nickname, exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '重试读取头像' })).toBeVisible()
+  await page.route(`${api}/me/avatar`, route => route.fulfill({ status: 404, json: { code: 'NO_AVATAR' } }))
+  await page.getByRole('button', { name: '重试读取头像' }).click()
+  await expect(page.getByRole('button', { name: '重试读取头像' })).toHaveCount(0)
+  expired = true
+  await page.reload()
+  await expect(page.locator('a[href="#/register"]').first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: user.nickname, exact: true })).toHaveCount(0)
+  expect(await page.evaluate(() => sessionStorage.getItem('studyloop_session'))).toBeNull()
+})
+
+test('default and unsafe login targets lead to the personal workspace', async ({ page }) => {
+  await page.route(`${api}/auth/login`, route => route.fulfill({ json: {
+    token: 'browser-secret', expires_at: new Date(Date.now() + 60_000).toISOString(), user,
+  } }))
+  for (const target of ['', '?redirect=https%3A%2F%2Fexample.com', '?redirect=%2F%2Fevil.example', '?redirect=%2Funknown']) {
+    await page.goto(`./#/login${target}`)
+    await page.getByLabel('邮箱', { exact: true }).fill(user.email)
+    await page.getByLabel('密码', { exact: true }).fill('valid password')
+    await page.getByRole('button', { name: '登录', exact: true }).click()
+    await expect(page).toHaveURL(/\/StudyLoop\/#\/$/)
+    await expect(page.getByRole('heading', { name: '个人工作台' })).toBeVisible()
+    await expect(page.locator('a[href="#/register"]')).toHaveCount(0)
+  }
 })
