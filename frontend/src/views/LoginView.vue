@@ -30,6 +30,7 @@ async function submit() {
   <section class="auth-section section-width">
     <div class="auth-intro"><span class="section-kicker">欢迎回来</span><h1>登录 StudyLoop</h1><p>完成邮箱验证后，继续你的学习旅程。</p></div>
     <div class="auth-card">
+      <h2 class="auth-card-title">登录你的账号</h2>
       <form @submit.prevent="submit">
         <label for="login-email">邮箱</label>
         <input id="login-email" v-model="email" type="email" autocomplete="email" required :disabled="pending">

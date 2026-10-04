@@ -27,6 +27,7 @@ async function verify() {
   <section class="auth-section section-width">
     <div class="auth-intro"><span class="section-kicker">确认属于你的邮箱</span><h1>验证邮箱</h1><p>完成验证，为下一次学习做好准备。</p></div>
     <div class="auth-card">
+      <h2 class="auth-card-title">邮箱确认</h2>
       <p v-if="message" :role="success ? 'status' : 'alert'" class="form-message" :class="{ success }">{{ message }}</p>
       <template v-if="!success && token">
         <p class="field-help">点击下方按钮完成邮箱验证。链接仅可使用一次，验证不会自动登录。</p>
