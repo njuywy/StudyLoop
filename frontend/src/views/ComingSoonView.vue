@@ -8,7 +8,7 @@ const route = useRoute()
     <div class="coming-mark" aria-hidden="true">↺</div>
     <span class="section-kicker">{{ route.meta.label }}</span>
     <h1>{{ route.meta.title }}</h1>
-    <p>我们正在搭建平台的基础能力。<br>这个入口已经为你留好，功能完成后即可使用。</p>
+    <p>暂时无法找到这个页面。<br>回到首页，继续探索你的学习空间。</p>
     <RouterLink class="primary-button" to="/">返回首页 <span aria-hidden="true">→</span></RouterLink>
   </section>
 </template>

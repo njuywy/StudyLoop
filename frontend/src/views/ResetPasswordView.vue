@@ -51,6 +51,7 @@ async function submit() {
   <section class="auth-section section-width">
     <div class="auth-intro"><span class="section-kicker">重新开始，继续学习</span><h1>重置密码</h1><p>设置新密码后，请重新登录。</p></div>
     <div class="auth-card">
+      <h2 class="auth-card-title">设置新密码</h2>
       <p v-if="message" :role="success ? 'status' : 'alert'" class="form-message" :class="{ success }">{{ message }}</p>
       <form v-if="!success && resetToken" @submit.prevent="submit">
         <label for="new-password">新密码</label>

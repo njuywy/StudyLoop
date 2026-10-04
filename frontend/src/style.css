@@ -74,7 +74,7 @@ h2 { font-size: 21px; font-weight: 500; margin: 10px 0 0; letter-spacing: -.4px;
 .connection-area { display: flex; gap: 12px; align-items: center; }
 .connection { display: flex; gap: 6px; align-items: center; }.connection i { width: 5px; height: 5px; background: #a8af99; border-radius: 50%; }.connection.ready i { background: #5a9265; }.connection.unavailable i { background: #b39b72; }
 .retry { color: #737f69; padding: 3px; background: none; border: 0; text-decoration: underline; cursor: pointer; }
-.coming-soon { text-align: center; min-height: 620px; padding-top: 115px; padding-bottom: 100px; }.coming-mark { color: #53794c; font-size: 60px; margin-bottom: 24px; }.coming-soon h1 { font-size: 32px; margin-top: 13px; }.coming-soon p { color: #8a9582; font-size: 14px; line-height: 2; margin: 0 0 30px; }
+.coming-soon { text-align: center; min-height: 620px; padding-top: 90px; padding-bottom: 80px; }.coming-mark { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 28px; background: #eaf0e5; color: #53794c; font-size: 56px; margin: 0 auto 24px; }.coming-soon h1 { font-size: 32px; margin-top: 13px; }.coming-soon p { color: #647260; font-size: 14px; line-height: 2; margin: 0 0 30px; }
 @media (max-width: 1000px) {
   .header-inner { padding: 20px 24px 10px; gap: 12px 24px; grid-template-columns: auto minmax(0, 1fr); }
   .header-inner nav { grid-column: 1 / -1; grid-row: 2; } nav { gap: 20px; }.account-links { gap: 15px; }.brand { font-size: 20px; }.section-width { padding-left: 24px; padding-right: 24px; }
@@ -85,34 +85,34 @@ h2 { font-size: 21px; font-weight: 500; margin: 10px 0 0; letter-spacing: -.4px;
   .hero { grid-template-columns: 1fr; padding-top: 38px; padding-bottom: 22px; }.eyebrow { font-size: 12px; }.hero h1 { font-size: 38px; margin-top: 20px; }.hero-description { font-size: 15px; }.hero-actions { margin: 25px 0 20px; gap: 20px; }.primary-button { padding: 13px 18px; font-size: 14px; gap: 17px; }.text-link { font-size: 14px; }.launch-note { font-size: 12px; line-height: 1.8; }
   .study-visual { height: 395px; margin-top: 15px; }.orbit-one { width: min(100%, 330px); height: auto; aspect-ratio: 1; }.orbit-two { width: min(92%, 290px); height: auto; aspect-ratio: 1; }.study-card { width: min(90%, 268px); }.floating-note { right: 0; bottom: 6px; }.spark-one { top: 20px; right: 28px; }.spark-two { left: 0; }
   .foundation { padding-top: 28px; padding-bottom: 35px; }h2 { font-size: 18px; line-height: 1.6; }.section-heading { gap: 14px; }.stage-label { white-space: nowrap; font-size: 11px; }.feature-grid { grid-template-columns: 1fr; gap: 12px; }.feature-card { padding: 22px; }.feature-card h3 { margin-top: 12px; }.feature-card p br { display: none; }.feature-card p { margin-bottom: 13px; }
-  .site-footer { margin: 0 24px; padding: 23px 0; flex-wrap: wrap; gap: 18px; }.site-footer > div:first-child { width: 100%; }.footer-note { margin-left: auto; }.coming-soon { min-height: 500px; padding-top: 70px; }.coming-soon h1 { font-size: 26px; }.coming-soon p { font-size: 12px; }
+  .site-footer { margin: 0 24px; padding: 23px 0; flex-wrap: wrap; gap: 18px; }.site-footer > div:first-child { width: 100%; }.footer-note { margin-left: auto; }.coming-soon { min-height: 500px; padding-top: 70px; }.coming-soon h1 { font-size: 26px; }.coming-soon p { font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
-.auth-section { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; padding-top: 76px; padding-bottom: 90px; min-height: 65vh; }
-.auth-intro h1 { font-size: 38px; }
-.auth-intro p { color: #74816f; line-height: 1.9; }
-.auth-card { padding: 32px; background: #fffef9; border: 1px solid #e0e5d8; border-radius: 10px; min-width: 0; }
+.auth-section { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); max-width: 1080px; gap: 36px; align-items: center; padding-top: 64px; padding-bottom: 72px; min-height: 72vh; }
+.auth-intro { position: relative; padding: 40px 32px; background: #eaf0e5; border: 1px solid #d8e2d2; border-radius: 20px; overflow-wrap: anywhere; }
+.auth-intro::before { content: ""; display: block; width: 44px; height: 44px; border: 3px solid #73916d; border-right-color: transparent; border-radius: 50%; margin-bottom: 32px; transform: rotate(-35deg); }
+.auth-intro h1 { font-size: clamp(28px, 3vw, 36px); line-height: 1.5; margin: 14px 0 20px; }
+.auth-intro p { color: #526957; font-size: 15px; line-height: 1.9; margin: 0; }
+.auth-card { padding: 32px; background: #fffefa; border: 1px solid #dce4d8; border-radius: 18px; min-width: 0; box-shadow: 0 10px 35px #30493106; }
+.auth-card > .auth-card-title { font-size: 20px; font-weight: 600; margin: 0 0 20px; }
+.auth-card > .text-link { display: table; }
 :is(.auth-card, .profile-card) form { display: flex; flex-direction: column; }
 :is(.auth-card, .profile-card) label { font-size: 14px; margin: 14px 0 9px; }
-:is(.auth-card, .profile-card) input { width: 100%; padding: 12px; border: 1px solid #bdc8b8; border-radius: 5px; background: white; font: inherit; color: inherit; }
+:is(.auth-card, .profile-card) input { width: 100%; padding: 12px; border: 1px solid #bdc8b8; border-radius: 9px; background: white; font: inherit; color: inherit; }
 :is(.auth-card, .profile-card) input:focus-visible { outline: 2px solid #789b7b; outline-offset: 2px; }
-.field-help, .optional { font-size: 12px; color: #697664; line-height: 1.8; }
-.form-message { font-size: 14px; padding: 14px; border-radius: 5px; color: #8c392a; background: #fff0ea; line-height: 1.8; overflow-wrap: anywhere; }
-.form-message.success { color: #215342; background: #edf3e7; }
-.form-message.neutral { color: #435d4b; background: #f0f3e9; }
+.field-help, .optional { font-size: 13px; color: #697664; line-height: 1.8; }
+.form-message { font-size: 14px; padding: 14px 16px; border: 1px solid #edd6cb; border-radius: 9px; color: #8c392a; background: #fff0ea; line-height: 1.8; overflow-wrap: anywhere; }
+.form-message.success { color: #215342; background: #edf3e7; border-color: #d6e2ce; }
+.form-message.neutral { color: #435d4b; background: #f0f3e9; border-color: #dce4d5; }
 :is(.auth-card, .profile-card) .primary-button { justify-content: center; margin-top: 16px; cursor: pointer; }
-.auth-card .text-link { display: inline-block; margin-top: 22px; }
+.auth-card .text-link { margin-top: 22px; line-height: 1.8; }
+.auth-card .mode-button { line-height: 1.8; font-size: 14px; }
+.auth-card .primary-button { width: 100%; }
 .mode-button { display: block; padding: 0; border: 0; background: none; color: #386745; margin-top: 24px; font-size: 13px; cursor: pointer; text-align: left; }
 button:disabled, input:disabled { opacity: .65; cursor: wait; }
-@media (max-width: 700px) { .auth-section { grid-template-columns: 1fr; gap: 22px; padding-top: 35px; padding-bottom: 45px; }.auth-card { padding: 23px; }.auth-intro h1 { font-size: 30px; } }
+@media (max-width: 700px) { .auth-section { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-top: 28px; padding-bottom: 40px; }.auth-card { padding: 24px; }.auth-intro { padding: 24px; }.auth-intro::before { display: none; }.auth-intro h1 { font-size: 28px; margin: 8px 0 12px; }.auth-intro p { font-size: 14px; } }
 .user-avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; object-fit: cover; }
 .default-avatar { background: #e9e8df; fill: #838779; }
 .avatar-editor input { min-width: 0; max-width: 100%; }
-.admin-section { padding-top: 48px; padding-bottom: 64px; }
-.managed-users { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); gap: 20px; }
-.managed-user { border: 1px solid #dce1d2; padding: 22px; border-radius: 8px; background: #fffef9; overflow-wrap: anywhere; }
-.managed-user dl { display: grid; grid-template-columns: 5em minmax(0, 1fr); gap: 10px; font-size: 13px; }
-.managed-user dd { margin: 0; }
-.pagination { display: flex; gap: 30px; }
 @media (max-width: 640px) { nav { gap: 20px; } }
 @media (max-width: 360px) { .header-inner { padding-inline: 16px; }.account-links .user-avatar { display: none; }.section-width { padding-inline: 20px; } }

@@ -50,6 +50,7 @@ async function submit() {
   <section class="auth-section section-width">
     <div class="auth-intro"><span class="section-kicker">从一个账号开始</span><h1>{{ resend ? '重发验证邮件' : '注册账号' }}</h1><p>用邮箱连接你的学习空间。<br>验证邮箱后，你的账号便完成了第一步。</p></div>
     <div class="auth-card">
+      <h2 class="auth-card-title">账号信息</h2>
       <form @submit.prevent="submit">
         <label for="email">邮箱</label>
         <input id="email" v-model="email" type="email" autocomplete="email" required maxlength="320" :disabled="pending" placeholder="you@example.com">

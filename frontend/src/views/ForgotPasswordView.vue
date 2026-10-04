@@ -23,6 +23,7 @@ async function submit() {
   <section class="auth-section section-width">
     <div class="auth-intro"><span class="section-kicker">找回学习的入口</span><h1>忘记密码</h1><p>通过已验证邮箱，重新设置你的密码。</p></div>
     <div class="auth-card">
+      <h2 class="auth-card-title">通过邮箱找回</h2>
       <form @submit.prevent="submit">
         <label for="reset-email">邮箱</label>
         <input id="reset-email" v-model="email" type="email" autocomplete="email" required maxlength="320" :disabled="pending">
