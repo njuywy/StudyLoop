@@ -12,7 +12,7 @@ import { RouterLink } from 'vue-router'
         <RouterLink class="primary-button" to="/review">探索在线复习 <span aria-hidden="true">→</span></RouterLink>
         <RouterLink class="text-link" to="/register">认识你的学习空间 <span aria-hidden="true">↗</span></RouterLink>
       </div>
-      <div class="launch-note"><span class="note-dot"></span>平台基础建设中 · 账号与复习功能即将上线</div>
+      <div class="launch-note"><span class="note-dot"></span>邮箱注册已开放 · 登录与复习功能建设中</div>
     </div>
     <div class="study-visual" aria-hidden="true">
       <div class="visual-orbit orbit-one"></div><div class="visual-orbit orbit-two"></div>
@@ -33,7 +33,7 @@ import { RouterLink } from 'vue-router'
   <section class="foundation section-width" aria-labelledby="foundation-title">
     <div class="section-heading"><div><span class="section-kicker">从这里开始</span><h2 id="foundation-title">为更好的复习，准备一个空间。</h2></div><span class="stage-label">首期建设中</span></div>
     <div class="feature-grid">
-      <RouterLink class="feature-card" to="/register"><span class="feature-number">01 /</span><h3>拥有自己的账号 <span aria-hidden="true">↗</span></h3><p>邮箱注册与登录，<br>从一个属于你的账号开始。</p><span class="feature-tag">准备中</span></RouterLink>
+      <RouterLink class="feature-card" to="/register"><span class="feature-number">01 /</span><h3>拥有自己的账号 <span aria-hidden="true">↗</span></h3><p>邮箱注册并完成验证，<br>从一个属于你的账号开始。</p><span class="feature-tag">开始注册</span></RouterLink>
       <RouterLink class="feature-card" to="/profile"><span class="feature-number">02 /</span><h3>找到自己的节奏 <span aria-hidden="true">↗</span></h3><p>个人中心与资料维护，<br>让学习空间带上你的名字。</p><span class="feature-tag">准备中</span></RouterLink>
       <RouterLink class="feature-card" to="/review"><span class="feature-number">03 /</span><h3>与知识再次相遇 <span aria-hidden="true">↗</span></h3><p>在线复习入口已预留，<br>接下来，一起把学习变成习惯。</p><span class="feature-tag">准备中</span></RouterLink>
     </div>
