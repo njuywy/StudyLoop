@@ -156,6 +156,7 @@ test('a nickname save remains pending across navigation before the next save is 
 })
 
 test('profile route variants keep the account forms available', async ({ page }) => {
+  await page.route(`${api}/me`, route => route.fulfill({ json: user }))
   for (const path of ['/profile/', '/Profile']) {
     await page.goto(`./#${path}`)
     await expect(page.getByRole('heading', { name: '个人中心', exact: true })).toBeVisible()
