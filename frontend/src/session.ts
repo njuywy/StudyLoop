@@ -8,6 +8,15 @@ const storedExpiry = Date.parse(sessionStorage.getItem('studyloop_session_expire
 export const token = ref(storedToken && storedExpiry > Date.now() ? storedToken : '')
 export const profile = ref<Profile | null>(null)
 export const nicknameSaving = ref(false)
+export const avatarUrl = ref('')
+export const avatarSaving = ref(false)
+export const avatarError = ref('')
+let avatarRevision = 0
+
+function displayAvatar(blob?: Blob) {
+  if (avatarUrl.value) URL.revokeObjectURL(avatarUrl.value)
+  avatarUrl.value = blob ? URL.createObjectURL(blob) : ''
+}
 export const sessionEndReason = ref<'expired' | 'password-changed' | null>(storedToken && storedExpiry <= Date.now() ? 'expired' : null)
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let sessionVersion = 0
@@ -41,6 +50,9 @@ export function clearSession() {
   token.value = ''
   profile.value = null
   nicknameSaving.value = false
+  displayAvatar()
+  avatarSaving.value = false
+  avatarError.value = ''
   sessionEndReason.value = null
 }
 
@@ -51,6 +63,9 @@ export function saveSession(value: string, user: Profile, expiresAt: string) {
   token.value = value
   profile.value = user
   nicknameSaving.value = false
+  displayAvatar()
+  avatarSaving.value = false
+  avatarError.value = ''
   sessionEndReason.value = null
   if (expiryTimer) clearTimeout(expiryTimer)
   scheduleExpiry(Date.parse(expiresAt))
@@ -58,7 +73,7 @@ export function saveSession(value: string, user: Profile, expiresAt: string) {
 
 type Result<T> = { ok: true; data: T } | { ok: false; status: number; message: string }
 
-async function request<T>(path: string, options: RequestInit = {}, useToken = true): Promise<Result<T>> {
+async function request<T>(path: string, options: RequestInit = {}, useToken = true, image = false): Promise<Result<T>> {
   const requestToken = token.value
   const requestVersion = sessionVersion
   const isCurrentSession = () => !useToken || (sessionVersion === requestVersion && token.value === requestToken)
@@ -69,17 +84,52 @@ async function request<T>(path: string, options: RequestInit = {}, useToken = tr
       headers: { ...(options.headers || {}), ...(useToken ? { Authorization: `Bearer ${requestToken}` } : {}) },
     })
     if (!isCurrentSession()) return stale()
-    const data: unknown = await response.json()
+    const data: unknown = response.ok && image ? await response.blob() : await response.json()
     if (!isCurrentSession()) return stale()
     if (response.status === 401 && useToken) expireSession()
     if (!response.ok) {
       const code = typeof data === 'object' && data !== null && 'code' in data ? data.code : ''
+      if (code === 'INVALID_AVATAR' || code === 'AVATAR_TOO_LARGE') return { ok: false, status: response.status, message: '请选择不超过 2 MiB 的有效 JPEG、PNG 或 WebP，累计像素不超过 1600 万。' }
       return { ok: false, status: response.status, message: code === 'INVALID_CURRENT_PASSWORD' ? '旧密码不正确，请重试。' : code === 'RATE_LIMITED' ? '登录尝试过于频繁，请稍后重试。' : response.status === 401 ? '邮箱或密码错误，或登录状态已失效。' : '请求暂未完成，请稍后重试。' }
     }
     return { ok: true, data: data as T }
   } catch {
     if (!isCurrentSession()) return stale()
     return { ok: false, status: 0, message: '网络连接暂不可用，请检查网络后重试。' }
+  }
+}
+
+export async function loadAvatar() {
+  const version = sessionVersion
+  const revision = avatarRevision
+  const result = await request<Blob>('/me/avatar', {}, true, true)
+  if (version !== sessionVersion || revision !== avatarRevision) return
+  avatarError.value = ''
+  if (result.ok) displayAvatar(result.data)
+  else if (result.status === 404) displayAvatar()
+  else if (result.status !== -1 && result.status !== 401) avatarError.value = '头像读取失败，请重试。'
+}
+
+export async function uploadAvatar(file: File) {
+  if (avatarSaving.value) return { ok: false as const, status: 409, message: '头像正在保存，请稍后。' }
+  const version = sessionVersion
+  avatarSaving.value = true
+  avatarRevision++
+  try {
+    const body = new FormData()
+    body.append('file', file)
+    const result = await request<Blob>('/me/avatar', { method: 'PUT', body }, true, true)
+    if (version !== sessionVersion) return { ok: false as const, status: -1, message: '' }
+    avatarRevision++
+    if (result.ok) {
+      displayAvatar(result.data)
+      avatarError.value = ''
+    } else if (result.status === 0 || result.status >= 500) {
+      avatarError.value = '头像保存结果尚未确认，请重新读取后再试。'
+    }
+    return result
+  } finally {
+    if (version === sessionVersion) avatarSaving.value = false
   }
 }
 

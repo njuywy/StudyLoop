@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 const api = 'https://124.220.147.193/api/v1'
 const user = { id: 'u1', email: 'verified@example.com', nickname: '阿云', role: 'user' }

@@ -8,8 +8,10 @@ dependencies = [
     "argon2-cffi>=25,<26",
     "email-validator>=2,<3",
     "fastapi>=0.115,<1",
+    "pillow>=12,<13",
     "psycopg[binary]>=3.2,<4",
     "python-dotenv>=1,<2",
+    "python-multipart>=0.0.22,<1",
     "sqlalchemy>=2,<3",
     "uvicorn>=0.35,<1",
 ]

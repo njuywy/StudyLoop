@@ -1,6 +1,6 @@
 # StudyLoop
 
-通用 AI 在线复习平台。已提供中文首页、邮箱注册/验证/重发、登录与退出、邮箱找回密码、昵称与密码维护、复习占位页、平台连接状态和 HTTPS API；头像及 AI 复习由后续切片实现。
+通用 AI 在线复习平台。已提供中文首页、邮箱注册/验证/重发、登录与退出、邮箱找回密码、昵称、密码与私有头像维护、复习占位页、平台连接状态和 HTTPS API；管理员功能及 AI 复习由后续切片实现。
 
 前端目标：<https://njuywy.github.io/StudyLoop/>。后端目标：`https://124.220.147.193/api/v1`。这些是部署目标，仓库有代码不代表线上已部署或验收通过。
 
@@ -50,7 +50,7 @@ uv run --project backend pytest backend/tests -m postgres -q
 uv run --project backend python -m dotenv -f backend/.env run -- alembic -c backend/alembic.ini upgrade head
 ```
 
-`0001_baseline` 建立迁移历史，`0002_registration` 建立账号、邮箱令牌与共享入口限流表；`0003_sessions` 建立服务端可撤销会话与账号禁用撤销规则。迁移重复运行应保持当前版本，数据与服务生命周期分离。
+`0001_baseline` 建立迁移历史，`0002_registration` 建立账号、邮箱令牌与共享入口限流表；`0003_sessions` 建立服务端可撤销会话与账号禁用撤销规则。`0004_avatar` 增加当前私有头像引用。迁移重复运行应保持当前版本，数据与服务生命周期分离。
 
 [服务器运行指南](docs/operations.md) 是部署、HTTPS 续期、配置、持久化与公网隔离核验的权威入口。使用原生 PostgreSQL、systemd 和 Nginx，不依赖 Docker。
 

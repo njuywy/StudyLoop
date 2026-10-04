@@ -98,3 +98,8 @@ h2 { font-size: 21px; font-weight: 500; margin: 10px 0 0; letter-spacing: -.4px;
 .mode-button { display: block; padding: 0; border: 0; background: none; color: #386745; margin-top: 24px; font-size: 13px; cursor: pointer; text-align: left; }
 button:disabled, input:disabled { opacity: .65; cursor: wait; }
 @media (max-width: 700px) { .auth-section { grid-template-columns: 1fr; gap: 22px; padding-top: 35px; padding-bottom: 45px; }.auth-card { padding: 23px; }.auth-intro h1 { font-size: 30px; } }
+.user-avatar { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; object-fit: cover; }
+.default-avatar { background: #e9e8df; fill: #838779; }
+.avatar-editor { margin-block: 24px; display: grid; gap: 12px; }
+.avatar-editor .user-avatar { width: 80px; height: 80px; }
+.avatar-editor input { min-width: 0; max-width: 100%; }

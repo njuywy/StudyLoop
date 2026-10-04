@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { checkPlatformConnection } from './api'
-import { logout, profile, token } from './session'
+import { loadAvatar, logout, profile, token } from './session'
+import UserAvatar from './views/UserAvatar.vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const logoutError = ref('')
+watch(token, value => { if (value) void loadAvatar() }, { immediate: true })
 
 const status = ref<'checking' | 'ready' | 'unavailable'>('checking')
 let controller: AbortController | undefined
@@ -54,7 +56,7 @@ async function signOut() {
         <RouterLink to="/profile">个人中心</RouterLink>
       </nav>
       <div class="account-links">
-        <template v-if="token"><RouterLink class="login-link" to="/profile">{{ profile?.nickname || '我的账号' }}</RouterLink><button class="mode-button" @click="signOut">退出</button></template>
+        <template v-if="token"><UserAvatar /><RouterLink class="login-link" to="/profile">{{ profile?.nickname || '我的账号' }}</RouterLink><button class="mode-button" @click="signOut">退出</button></template>
         <template v-else><RouterLink class="login-link" to="/login">登录</RouterLink><RouterLink class="small-button" to="/register">注册账号 <span aria-hidden="true">↗</span></RouterLink></template>
       </div>
     </div>
